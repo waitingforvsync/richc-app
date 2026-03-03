@@ -35,24 +35,36 @@ GLFW or glad headers.
   Use `RC_PANIC` for unrecoverable failures (OOM, GL/GLFW init failure).
 - Follow richc naming conventions: `rc_` prefix, snake_case, container-first.
 
+## Build directories
+| Directory    | Compiler | Generator |
+|--------------|----------|-----------|
+| `build/`     | clang    | Ninja     |
+| `build_msvc/`| MSVC     | VS 2022   |
+
+Always use the matching directory — never mix compilers into the same build tree.
+
 ## Build commands
 Requires: CMake ≥ 3.21, Python 3 on PATH (for glad code generation), and a
 C17-capable compiler.  Run from `C:\Users\richard.talbotwatkin\richc-app\`.
 
-Configure and build with VS 2022 (MSVC):
+Configure and build with Ninja + clang (primary):
 ```
-cmake.exe -B build -G "Visual Studio 17 2022"
-cmake.exe --build build
+"C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe" \
+    -B build -G Ninja \
+    -DCMAKE_C_COMPILER=C:/clang/bin/clang.exe \
+    -DCMAKE_MAKE_PROGRAM="C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe"
+
+"C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe" \
+    --build build
 ```
 
-Configure and build with Ninja + clang:
+Configure and build with VS 2022 (MSVC):
 ```
-"C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe" ^
-    -B build -G Ninja ^
-    -DCMAKE_C_COMPILER=C:/clang/bin/clang.exe ^
-    -DCMAKE_MAKE_PROGRAM="C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe"
-"C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe" ^
-    --build build
+"C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe" \
+    -B build_msvc -G "Visual Studio 17 2022"
+
+"C:/Program Files/Microsoft Visual Studio/2022/Professional/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe" \
+    --build build_msvc
 ```
 
 ## Architecture: app template (app.h)

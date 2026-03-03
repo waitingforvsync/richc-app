@@ -12,6 +12,10 @@
  *                (optional; default: rc_app_##APP_CTX_T)
  *
  * All macros defined before inclusion are undefined by this header.
+ * If APP_CTX_T is not defined the header is still safe to include:
+ * only the once-only declarations are emitted and the per-type section
+ * is skipped.  This allows backend source files to include app.h for
+ * the impl type and hint declarations without triggering an instantiation.
  *
  * Usage
  * -----
@@ -75,7 +79,7 @@ typedef struct {
     int32_t msaa_samples;   /* 0 or 1 = no MSAA    */
 } rc_gfx_hints_;
 
-rc_app_impl_ *rc_app_impl_create_ (
+rc_app_impl_ *rc_app_impl_create_(
     rc_str title, int32_t w, int32_t h, bool resizable,
     rc_gfx_hints_ hints,
     void *ctx,
@@ -95,11 +99,9 @@ rc_vec2i rc_app_impl_size_       (const rc_app_impl_ *impl);
 
 #endif /* RC_APP_H_ */
 
-/* ---- per-type section ---- */
+/* ---- per-type section (skipped if APP_CTX_T is not defined) ---- */
 
-#ifndef APP_CTX_T
-#  error "APP_CTX_T must be defined before including app.h"
-#endif
+#ifdef APP_CTX_T
 
 #ifndef APP_NAME
 #  define APP_NAME RC_CONCAT(rc_app_, APP_CTX_T)
@@ -163,11 +165,11 @@ static inline APP_NAME APP_MAKE_(const APP_DESC_ *desc)
     return app;
 }
 
-static inline void     APP_DESTROY_(APP_NAME *app)          { rc_app_impl_destroy_(app->impl_);         }
-static inline void     APP_POLL_   (APP_NAME *app)           { rc_app_impl_poll_(app->impl_);            }
-static inline void     APP_SWAP_   (APP_NAME *app)           { rc_app_impl_swap_(app->impl_);            }
-static inline bool     APP_RUNNING_(const APP_NAME *app)     { return rc_app_impl_is_running_(app->impl_); }
-static inline rc_vec2i APP_SIZE_   (const APP_NAME *app)     { return rc_app_impl_size_(app->impl_);     }
+static inline void     APP_DESTROY_(APP_NAME *app)      { rc_app_impl_destroy_(app->impl_);          }
+static inline void     APP_POLL_   (APP_NAME *app)       { rc_app_impl_poll_(app->impl_);             }
+static inline void     APP_SWAP_   (APP_NAME *app)       { rc_app_impl_swap_(app->impl_);             }
+static inline bool     APP_RUNNING_(const APP_NAME *app) { return rc_app_impl_is_running_(app->impl_); }
+static inline rc_vec2i APP_SIZE_   (const APP_NAME *app) { return rc_app_impl_size_(app->impl_);      }
 
 /* ---- cleanup ---- */
 
@@ -181,3 +183,5 @@ static inline rc_vec2i APP_SIZE_   (const APP_NAME *app)     { return rc_app_imp
 
 #undef APP_NAME
 #undef APP_CTX_T
+
+#endif /* APP_CTX_T */

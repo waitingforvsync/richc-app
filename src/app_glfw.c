@@ -11,10 +11,10 @@
 
 #include "richc_app/app.h"
 #include "richc/debug.h"
-#include "richc/math/vec2i.h"
 
-#include <GLFW/glfw3.h>
 #include <glad/gl.h>
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -35,14 +35,13 @@ struct rc_app_impl_ {
 /* ---- glad proc loader ---- */
 
 /*
- * Bridge between GLFW's GLFWglproc (function pointer) return type and
- * glad's GLADloadfunc (void *) expectation.  The cast through uintptr_t
- * is implementation-defined but correct on all platforms this library
- * targets (Win32, Linux x86-64, macOS).
+ * Bridge between glfwGetProcAddress (returns GLFWglproc = void (*)(void))
+ * and GLADloadfunc (returns GLADapiproc = void (*)(void)).
+ * Both are the same underlying type; the cast is a no-op in practice.
  */
-static void *glad_get_proc_(const char *name)
+static GLADapiproc glad_get_proc_(const char *name)
 {
-    return (void *)(uintptr_t)glfwGetProcAddress(name);
+    return (GLADapiproc)glfwGetProcAddress(name);
 }
 
 /* ---- GLFW callbacks ---- */

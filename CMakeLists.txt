@@ -52,3 +52,19 @@ if(MSVC)
 else()
     target_compile_options(richc_app PRIVATE -Wall -Wextra)
 endif()
+
+# ---- test application ----
+
+add_executable(richc_app_test
+    test/test_app.c
+)
+
+target_link_libraries(richc_app_test
+    PRIVATE richc_app
+)
+
+if(MSVC)
+    target_compile_options(richc_app_test PRIVATE /W3)
+else()
+    target_compile_options(richc_app_test PRIVATE -Wall -Wextra)
+endif()
