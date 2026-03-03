@@ -1,0 +1,9 @@
+[submodule "extern/richc"]
+	path = extern/richc
+	url = https://github.com/waitingforvsync/richc.git
+[submodule "extern/glfw"]
+	path = extern/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "extern/glad"]
+	path = extern/glad
+	url = https://github.com/Dav1dde/glad.git
