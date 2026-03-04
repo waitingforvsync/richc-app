@@ -67,25 +67,6 @@ Configure and build with VS 2022 (MSVC):
     --build build_msvc
 ```
 
-## Architecture: app template (app.h)
-
-`app.h` is a preprocessor template that generates a typed application handle.
-Define `APP_CTX_T` (and optionally `APP_NAME`) before including:
-
-```c
-#define APP_CTX_T  MyState
-#include "richc_app/app.h"
-```
-
-This generates:
-- `rc_app_MyState_desc`  — descriptor with typed callbacks and a `ctx` pointer
-- `rc_app_MyState`       — app handle (`{ rc_app_impl_ *impl_; }`)
-- Inline wrappers: `_make`, `_destroy`, `_poll`, `_swap`, `_is_running`, `_size`
-
-The template casts typed callbacks to `void *` variants when calling the
-backend.  The casts are safe because `void *` and `T *` share data-pointer
-representation on all supported platforms.
-
 ## File inventory
 ```
 CMakeLists.txt                    — build system
@@ -98,9 +79,11 @@ include/richc_app/
   keys.h                          — rc_key, rc_action, rc_mod, rc_mouse_button enums
   events.h                        — rc_key_event, rc_mouse_event, rc_cursor_event,
                                     rc_scroll_event, rc_resize_event, rc_char_event
-  app.h                           — typed app handle template (APP_CTX_T)
+  app.h                           — rc_app (opaque), rc_app_desc, rc_app_make/destroy/poll/swap/is_running/size
   gfx.h                           — rc_color, rc_gfx_viewport, rc_gfx_clear, rc_gfx_clear_depth
 src/
-  app_glfw.c                      — GLFW + glad backend; implements rc_app_impl_ functions
+  app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions
   gfx_gl33.c                      — GL 3.3 implementation of gfx.h helpers
+test/
+  test_app.c                      — smoke test: mid-grey 1280x720 window, exits on close
 ```
