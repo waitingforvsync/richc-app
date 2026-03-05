@@ -81,10 +81,12 @@ include/richc/app/
                                     request_update/request_render/swap_buffers
 include/richc/gfx/
   gfx.h                           — rc_color, rc_gfx_viewport, rc_gfx_clear, rc_gfx_clear_depth
+  shader.h                        — rc_shader, rc_uniform_loc, rc_shader_make/destroy/bind/loc/set_*
 src/app/
   app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions
 src/gfx/
   gfx_gl33.c                      — GL 3.3 implementation of gfx.h helpers
+  shader_gl33.c                   — GL 3.3 implementation of shader.h
 test/
   test_app.c                      — smoke test: mid-grey 1280x720 window, exits on close
 ```
