@@ -34,7 +34,6 @@ add_library(richc_app STATIC
     src/gfx_gl33.c
     include/richc_app/app.h
     include/richc_app/gfx.h
-    include/richc_app/events.h
     include/richc_app/keys.h
 )
 

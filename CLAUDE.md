@@ -76,10 +76,10 @@ extern/
   glfw/                           — GLFW 3.4 submodule
   glad/                           — glad2 submodule (Python-based GL loader)
 include/richc_app/
-  keys.h                          — rc_key, rc_action, rc_mod, rc_mouse_button enums
-  events.h                        — rc_key_event, rc_mouse_event, rc_cursor_event,
-                                    rc_scroll_event, rc_resize_event, rc_char_event
-  app.h                           — rc_app (opaque), rc_app_desc, rc_app_make/destroy/poll/swap/is_running/size
+  keys.h                          — rc_scancode, rc_mod, rc_mouse_button
+  app.h                           — rc_app_callbacks, rc_app_desc, rc_app (opaque),
+                                    rc_app_make/destroy/poll/swap/is_running/size/
+                                    request_update/request_render
   gfx.h                           — rc_color, rc_gfx_viewport, rc_gfx_clear, rc_gfx_clear_depth
 src/
   app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions

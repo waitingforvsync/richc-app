@@ -8,25 +8,27 @@
 #include "richc_app/app.h"
 #include "richc_app/gfx.h"
 
+static void on_render(void *ctx)
+{
+    (void)ctx;
+    rc_gfx_clear(rc_color_make_rgb(0.5f, 0.5f, 0.5f));
+}
+
 int main(void)
 {
-    rc_app_desc desc = {0};
-    desc.title     = RC_STR("richc-app test");
-    desc.width     = 1280;
-    desc.height    = 720;
-    desc.resizable = true;
+    rc_app_init(&(rc_app_desc){
+        .title     = RC_STR("richc-app test"),
+        .width     = 1280,
+        .height    = 720,
+        .resizable = true,
+        .callbacks = { .on_render = on_render },
+    });
 
-    rc_app *app = rc_app_make(&desc);
-
-    while (rc_app_is_running(app)) {
-        rc_app_poll(app);
-
-        rc_gfx_viewport(rc_app_size(app));
-        rc_gfx_clear(rc_color_make_rgb(0.5f, 0.5f, 0.5f));
-
-        rc_app_swap(app);
+    while (rc_app_is_running()) {
+        rc_app_poll();
+        rc_app_request_render();
     }
 
-    rc_app_destroy(app);
+    rc_app_destroy();
     return 0;
 }
