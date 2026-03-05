@@ -5,8 +5,8 @@
  * and exits cleanly when the user closes the window.
  */
 
-#include "richc_app/app.h"
-#include "richc_app/gfx.h"
+#include "richc/app/app.h"
+#include "richc/gfx/gfx.h"
 
 static void on_render(void *ctx)
 {

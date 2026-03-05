@@ -9,7 +9,7 @@
  * callbacks can cast without a lookup table.
  */
 
-#include "richc_app/app.h"
+#include "richc/app/app.h"
 #include "richc/debug.h"
 
 #include <glad/gl.h>

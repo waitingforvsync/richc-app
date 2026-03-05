@@ -30,11 +30,11 @@ find_package(OpenGL REQUIRED)
 # ---- richc_app ----
 
 add_library(richc_app STATIC
-    src/app_glfw.c
-    src/gfx_gl33.c
-    include/richc_app/app.h
-    include/richc_app/gfx.h
-    include/richc_app/keys.h
+    src/app/app_glfw.c
+    src/gfx/gfx_gl33.c
+    include/richc/app/app.h
+    include/richc/app/keys.h
+    include/richc/gfx/gfx.h
 )
 
 target_include_directories(richc_app PUBLIC include)

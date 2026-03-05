@@ -39,7 +39,7 @@
 #include <stdint.h>
 #include "richc/str.h"
 #include "richc/math/vec2i.h"
-#include "richc_app/keys.h"
+#include "richc/app/keys.h"
 
 /* ---- callbacks ---- */
 

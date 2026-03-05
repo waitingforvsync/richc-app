@@ -17,15 +17,14 @@ never appear in the public API.
 
 ## Header guards
 Same convention as richc: `#ifndef RC_APP_<FILENAME>_H_` / `#define` / `#endif`.
-Examples: `RC_APP_GFX_H_`, `RC_APP_EVENTS_H_`, `RC_APP_KEYS_H_`.
+Examples: `RC_APP_H_`, `RC_APP_KEYS_H_`, `RC_APP_GFX_H_`.
 
 ## Backend abstraction
 The compile-time backend is selected by which `.c` file is compiled.
-- `src/app_glfw.c` — the only file that includes `<GLFW/glfw3.h>` and `<glad/gl.h>`
-- `src/gfx_gl33.c` — the only file that calls raw GL functions
+- `src/app/app_glfw.c` — the only file that includes `<GLFW/glfw3.h>` and `<glad/gl.h>`
+- `src/gfx/gfx_gl33.c` — the only file that calls raw GL functions
 
-Public headers (`app.h`, `gfx.h`, `events.h`, `keys.h`) must never include
-GLFW or glad headers.
+Public headers must never include GLFW or glad headers.
 
 ## Ground rules
 - **Language standard: C17** — compile with `/std:c17` (MSVC) or `-std=c17` (clang/gcc)
@@ -75,14 +74,16 @@ extern/
   richc/                          — richc v0.1 submodule
   glfw/                           — GLFW 3.4 submodule
   glad/                           — glad2 submodule (Python-based GL loader)
-include/richc_app/
+include/richc/app/
   keys.h                          — rc_scancode, rc_mod, rc_mouse_button
-  app.h                           — rc_app_callbacks, rc_app_desc, rc_app (opaque),
-                                    rc_app_make/destroy/poll/swap/is_running/size/
-                                    request_update/request_render
+  app.h                           — rc_app_callbacks, rc_app_desc,
+                                    rc_app_init/destroy/poll/is_running/size/
+                                    request_update/request_render/swap_buffers
+include/richc/gfx/
   gfx.h                           — rc_color, rc_gfx_viewport, rc_gfx_clear, rc_gfx_clear_depth
-src/
+src/app/
   app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions
+src/gfx/
   gfx_gl33.c                      — GL 3.3 implementation of gfx.h helpers
 test/
   test_app.c                      — smoke test: mid-grey 1280x720 window, exits on close

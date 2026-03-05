@@ -5,7 +5,7 @@
  * before any call to these functions can occur.
  */
 
-#include "richc_app/gfx.h"
+#include "richc/gfx/gfx.h"
 #include <glad/gl.h>
 
 void rc_gfx_viewport(rc_vec2i size)
