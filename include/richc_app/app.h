@@ -120,4 +120,8 @@ void     rc_app_request_update (void);
  * modal resize) so rendering stays live without extra user code. */
 void     rc_app_request_render (void);
 
+/* Swap the front and back buffers directly.  Use this when managing
+ * rendering outside of the on_render callback, e.g. from a render thread. */
+void     rc_app_swap_buffers   (void);
+
 #endif /* RC_APP_H_ */

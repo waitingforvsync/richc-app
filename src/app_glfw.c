@@ -224,3 +224,8 @@ void rc_app_request_render(void)
     app_.callbacks.on_render(app_.callbacks.ctx);
     glfwSwapBuffers(app_.window);
 }
+
+void rc_app_swap_buffers(void)
+{
+    glfwSwapBuffers(app_.window);
+}
