@@ -167,6 +167,9 @@ void rc_app_init(const rc_app_desc *desc)
 
     RC_PANIC(gladLoadGL(glad_get_proc_));
 
+    if (desc->srgb)
+        glEnable(GL_FRAMEBUFFER_SRGB);
+
     app_.callbacks        = desc->callbacks;
     app_.current_mods     = (rc_mod)0;
     app_.last_update_time = glfwGetTime();

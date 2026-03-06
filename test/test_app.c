@@ -141,17 +141,15 @@ static void make_pentagram_lines(line_t *out, float radius, float half_width)
 /* ---- setup / teardown ---- */
 
 /*
- * Unit quad: 4 vertices as a triangle strip.
- *   v0 (-1, 0) --- v1 (+1, 0)    V=0  (line start)
- *   v2 (-1, 1) --- v3 (+1, 1)    V=1  (line end)
+ * Unit quad: 6 vertices (two triangles).
+ *   (-1, 0) --- (+1, 0)    V=0  (line start)
+ *   (-1, 1) --- (+1, 1)    V=1  (line end)
  * U spans [-1, +1] across the line width; the vertex shader offsets
  * by half_thick * U to produce the actual screen position.
  */
 static const float k_quad_verts[] = {
-    -1.0f, 0.0f,
-    +1.0f, 0.0f,
-    -1.0f, 1.0f,
-    +1.0f, 1.0f,
+    -1.0f, 0.0f,   +1.0f, 0.0f,   +1.0f, 1.0f,   /* triangle 1 */
+    -1.0f, 0.0f,   +1.0f, 1.0f,   -1.0f, 1.0f,   /* triangle 2 */
 };
 
 static void setup(App *app)
@@ -168,7 +166,7 @@ static void setup(App *app)
     rc_buffer_upload(app->quad_buf, k_quad_verts, (uint32_t)sizeof(k_quad_verts));
 
     /* pentagram line instances */
-    make_pentagram_lines(app->lines, 280.0f, 3.5f);
+    make_pentagram_lines(app->lines, 280.0f, 1.75f);
     app->line_buf = rc_buffer_make(RC_BUFFER_DYNAMIC);
     rc_buffer_upload(app->line_buf, app->lines, (uint32_t)sizeof(app->lines));
 
@@ -198,7 +196,8 @@ static void on_render(void *ctx)
 {
     App *app = ctx;
 
-    rc_gfx_clear(rc_color_make_rgb(0.5f, 0.5f, 0.5f));
+    /* Linear mid-grey: sRGB 0.5 linearised via ((0.5 + 0.055) / 1.055)^2.4. */
+    rc_gfx_clear(rc_color_make_rgb(0.214f, 0.214f, 0.214f));
 
     /* orthographic projection: pixel coords, origin at window centre, y up */
     rc_vec2i sz = rc_app_size();
@@ -211,7 +210,7 @@ static void on_render(void *ctx)
 
     rc_vertex_array_bind(app->va);
     rc_gfx_blend_enable();
-    rc_gfx_draw_arrays_instanced(RC_PRIMITIVE_TRIANGLE_STRIP, 0, 4, 5);
+    rc_gfx_draw_arrays_instanced(0, 6, 5);
 }
 
 /* ---- main ---- */
@@ -223,6 +222,7 @@ int main(void)
         .width     = 1280,
         .height    = 720,
         .resizable = true,
+        .srgb      = true,
         .callbacks = {
             .ctx       = &g_app,
             .on_render = on_render,
