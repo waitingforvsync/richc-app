@@ -33,10 +33,12 @@ add_library(richc_app STATIC
     src/app/app_glfw.c
     src/gfx/gfx_gl33.c
     src/gfx/shader_gl33.c
+    src/gfx/buffer_gl33.c
     include/richc/app/app.h
     include/richc/app/keys.h
     include/richc/gfx/gfx.h
     include/richc/gfx/shader.h
+    include/richc/gfx/buffer.h
 )
 
 target_include_directories(richc_app PUBLIC include)

@@ -62,4 +62,26 @@ void rc_gfx_clear(rc_color color);
 /* Clear the depth buffer. */
 void rc_gfx_clear_depth(void);
 
+/* ---- draw calls ---- */
+
+typedef enum {
+    RC_PRIMITIVE_TRIANGLES,
+    RC_PRIMITIVE_TRIANGLE_STRIP,
+} rc_primitive;
+
+/* Draw count vertices starting at first. */
+void rc_gfx_draw_arrays(rc_primitive prim, uint32_t first, uint32_t count);
+
+/* Draw count vertices, repeated instances times (instanced rendering). */
+void rc_gfx_draw_arrays_instanced(rc_primitive prim, uint32_t first,
+                                   uint32_t count, uint32_t instances);
+
+/* ---- blend state ---- */
+
+/* Enable alpha blending: src=SRC_ALPHA, dst=ONE_MINUS_SRC_ALPHA. */
+void rc_gfx_blend_enable(void);
+
+/* Disable blending. */
+void rc_gfx_blend_disable(void);
+
 #endif /* RC_APP_GFX_H_ */

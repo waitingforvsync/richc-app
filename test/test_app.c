@@ -1,34 +1,242 @@
 /*
- * test_app.c - basic richc-app smoke test.
+ * test_app.c - pentagram drawn with anti-aliased instanced lines.
  *
- * Opens a resizable 1280x720 window, clears it to mid-grey each frame,
- * and exits cleanly when the user closes the window.
+ * Each of the 5 line segments is submitted as one instance of a unit quad.
+ * The vertex shader maps the quad's (U, V) UVs to world-space positions using
+ * the per-instance start/end and half-thickness vectors.  The fragment shader
+ * derives alpha from fwidth(U) to produce a 1-pixel soft edge.
+ *
+ * No GL calls appear here; everything goes through the rc_gfx / rc_shader /
+ * rc_buffer / rc_vertex_array / rc_app APIs.
  */
 
 #include "richc/app/app.h"
+#include "richc/app/keys.h"
 #include "richc/gfx/gfx.h"
+#include "richc/gfx/shader.h"
+#include "richc/gfx/buffer.h"
+#include "richc/math/mat44f.h"
+#include "richc/math/math.h"
+#include "richc/math/vec2f.h"
+#include "richc/str.h"
+#include "richc/arena.h"
+#include <stddef.h>   /* offsetof */
+
+/* ---- GLSL shaders ---- */
+
+/*
+ * Vertex shader
+ * -------------
+ * a_uv        (location 0, per-vertex):   U in [-1, 1] (width), V in [0, 1] (length)
+ * a_start     (location 1, per-instance): line start in pixel coords
+ * a_end       (location 2, per-instance): line end in pixel coords
+ * a_half_thick(location 3, per-instance): perpendicular half-width vector
+ * a_color     (location 4, per-instance): RGBA colour
+ *
+ * Position = lerp(start, end, V) + half_thick * U
+ */
+static const char k_vert_src[] =
+    "#version 330 core\n"
+    "\n"
+    "layout(location = 0) in vec2 a_uv;\n"
+    "layout(location = 1) in vec2 a_start;\n"
+    "layout(location = 2) in vec2 a_end;\n"
+    "layout(location = 3) in vec2 a_half_thick;\n"
+    "layout(location = 4) in vec4 a_color;\n"
+    "\n"
+    "uniform mat4 u_mvp;\n"
+    "\n"
+    "out vec2 v_uv;\n"
+    "out vec4 v_color;\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    vec2 pos    = mix(a_start, a_end, a_uv.y) + a_half_thick * a_uv.x;\n"
+    "    gl_Position = u_mvp * vec4(pos, 0.0, 1.0);\n"
+    "    v_uv        = a_uv;\n"
+    "    v_color     = a_color;\n"
+    "}\n";
+
+/*
+ * Fragment shader
+ * ---------------
+ * Derives alpha from fwidth(U): the edge falls off over one screen pixel on
+ * each side, giving smooth anti-aliasing regardless of scale.
+ */
+static const char k_frag_src[] =
+    "#version 330 core\n"
+    "\n"
+    "in  vec2 v_uv;\n"
+    "in  vec4 v_color;\n"
+    "\n"
+    "out vec4 frag_color;\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    float edge  = fwidth(v_uv.x);\n"
+    "    float alpha = smoothstep(1.0 + edge, 1.0 - edge, abs(v_uv.x));\n"
+    "    frag_color  = vec4(v_color.rgb, v_color.a * alpha);\n"
+    "}\n";
+
+/* ---- line instance struct ---- */
+
+/*
+ * One entry per line segment.  Layout must match the attribute descriptors
+ * given to rc_vertex_array_make and the per-instance inputs in k_vert_src.
+ */
+typedef struct {
+    rc_vec2f start;           /* world-space start point */
+    rc_vec2f end;             /* world-space end point   */
+    rc_vec2f half_thickness;  /* perpendicular half-width vector */
+    rc_color color;           /* RGBA (float) */
+} line_t;
+
+/* ---- application context ---- */
+
+typedef struct {
+    rc_shader       shader;
+    rc_uniform_loc  u_mvp;
+    rc_buffer       quad_buf;
+    rc_buffer       line_buf;
+    rc_vertex_array va;
+    line_t          lines[5];
+} App;
+
+static App g_app;
+
+/* ---- pentagram geometry ---- */
+
+/*
+ * Build the 5 line segments of a pentagram inscribed in a circle of the given
+ * radius (pixels).  half_width is the perpendicular half-thickness in pixels.
+ * The star is drawn by connecting every other vertex: 0->2->4->1->3->0.
+ */
+static void make_pentagram_lines(line_t *out, float radius, float half_width)
+{
+    /* 5 vertices of a regular pentagon, starting from the top. */
+    rc_vec2f pts[5];
+    for (int i = 0; i < 5; i++) {
+        float angle = rc_deg_to_rad(-90.0f + (float)i * 72.0f);
+        pts[i] = rc_vec2f_scalar_mul(rc_vec2f_make_cossin(angle), radius);
+    }
+
+    /* Connect alternating vertices to form the star. */
+    static const int order[6] = {0, 2, 4, 1, 3, 0};
+    for (int i = 0; i < 5; i++) {
+        rc_vec2f start = pts[order[i]];
+        rc_vec2f end   = pts[order[i + 1]];
+        rc_vec2f dir   = rc_vec2f_sub(end, start);
+        rc_vec2f perp  = rc_vec2f_scalar_mul(
+                             rc_vec2f_normalize(rc_vec2f_perp(dir)),
+                             half_width);
+        out[i] = (line_t) {
+            .start          = start,
+            .end            = end,
+            .half_thickness = perp,
+            .color          = rc_color_make(0.0f, 0.0f, 0.0f, 1.0f),
+        };
+    }
+}
+
+/* ---- setup / teardown ---- */
+
+/*
+ * Unit quad: 4 vertices as a triangle strip.
+ *   v0 (-1, 0) --- v1 (+1, 0)    V=0  (line start)
+ *   v2 (-1, 1) --- v3 (+1, 1)    V=1  (line end)
+ * U spans [-1, +1] across the line width; the vertex shader offsets
+ * by half_thick * U to produce the actual screen position.
+ */
+static const float k_quad_verts[] = {
+    -1.0f, 0.0f,
+    +1.0f, 0.0f,
+    -1.0f, 1.0f,
+    +1.0f, 1.0f,
+};
+
+static void setup(App *app)
+{
+    /* compile and link the line shader */
+    rc_arena scratch = rc_arena_make_default();
+    app->shader = rc_shader_make(rc_str_make(k_vert_src), rc_str_make(k_frag_src), scratch);
+    rc_arena_destroy(&scratch);
+
+    app->u_mvp = rc_shader_loc(app->shader, "u_mvp");
+
+    /* static quad buffer (shared template for all line instances) */
+    app->quad_buf = rc_buffer_make(RC_BUFFER_STATIC);
+    rc_buffer_upload(app->quad_buf, k_quad_verts, (uint32_t)sizeof(k_quad_verts));
+
+    /* pentagram line instances */
+    make_pentagram_lines(app->lines, 280.0f, 3.5f);
+    app->line_buf = rc_buffer_make(RC_BUFFER_DYNAMIC);
+    rc_buffer_upload(app->line_buf, app->lines, (uint32_t)sizeof(app->lines));
+
+    /* vertex array: per-vertex quad UV + per-instance line data */
+    rc_attrib_desc attribs[] = {
+        /* location  buffer          type              count  stride             offset                               divisor */
+        { 0, app->quad_buf, RC_ATTRIB_FLOAT, 2, 8,                              0,                                       0 },
+        { 1, app->line_buf, RC_ATTRIB_FLOAT, 2, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, start),          1 },
+        { 2, app->line_buf, RC_ATTRIB_FLOAT, 2, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, end),            1 },
+        { 3, app->line_buf, RC_ATTRIB_FLOAT, 2, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, half_thickness), 1 },
+        { 4, app->line_buf, RC_ATTRIB_FLOAT, 4, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, color),          1 },
+    };
+    app->va = rc_vertex_array_make(attribs, (uint32_t)(sizeof(attribs) / sizeof(attribs[0])));
+}
+
+static void teardown(App *app)
+{
+    rc_vertex_array_destroy(app->va);
+    rc_buffer_destroy(app->line_buf);
+    rc_buffer_destroy(app->quad_buf);
+    rc_shader_destroy(app->shader);
+}
+
+/* ---- render callback ---- */
 
 static void on_render(void *ctx)
 {
-    (void)ctx;
+    App *app = ctx;
+
     rc_gfx_clear(rc_color_make_rgb(0.5f, 0.5f, 0.5f));
+
+    /* orthographic projection: pixel coords, origin at window centre, y up */
+    rc_vec2i sz = rc_app_size();
+    float hw = (float)sz.x * 0.5f;
+    float hh = (float)sz.y * 0.5f;
+    rc_mat44f proj = rc_mat44f_make_ortho(-hw, hw, hh, -hh, -1.0f, 1.0f);
+
+    rc_shader_bind(app->shader);
+    rc_shader_set_mat4(app->u_mvp, rc_mat44f_as_floats(&proj));
+
+    rc_vertex_array_bind(app->va);
+    rc_gfx_blend_enable();
+    rc_gfx_draw_arrays_instanced(RC_PRIMITIVE_TRIANGLE_STRIP, 0, 4, 5);
 }
+
+/* ---- main ---- */
 
 int main(void)
 {
-    rc_app_init(&(rc_app_desc){
+    rc_app_init(&(rc_app_desc) {
         .title     = RC_STR("richc-app test"),
         .width     = 1280,
         .height    = 720,
         .resizable = true,
-        .callbacks = { .on_render = on_render },
+        .callbacks = {
+            .ctx       = &g_app,
+            .on_render = on_render,
+        },
     });
+
+    setup(&g_app);
 
     while (rc_app_is_running()) {
         rc_app_poll();
         rc_app_request_render();
     }
 
+    teardown(&g_app);
     rc_app_destroy();
     return 0;
 }
