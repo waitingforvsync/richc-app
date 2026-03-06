@@ -232,3 +232,8 @@ void rc_app_swap_buffers(void)
 {
     glfwSwapBuffers(app_.window);
 }
+
+double rc_app_time(void)
+{
+    return glfwGetTime();
+}

@@ -124,4 +124,7 @@ void     rc_app_request_render (void);
  * rendering outside of the on_render callback, e.g. from a render thread. */
 void     rc_app_swap_buffers   (void);
 
+/* Seconds elapsed since rc_app_init.  Suitable for animation timers. */
+double   rc_app_time           (void);
+
 #endif /* RC_APP_H_ */

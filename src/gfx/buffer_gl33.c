@@ -74,6 +74,12 @@ void rc_buffer_upload(rc_buffer buf, const void *data, uint32_t size)
     glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)size, data, usage);
 }
 
+void rc_buffer_update(rc_buffer buf, const void *data, uint32_t size)
+{
+    glBindBuffer(GL_ARRAY_BUFFER, buf.id);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)size, data);
+}
+
 void rc_buffer_destroy(rc_buffer buf)
 {
     for (uint32_t i = 0; i < buf_count_; i++) {

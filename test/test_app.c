@@ -20,6 +20,7 @@
 #include "richc/math/vec2f.h"
 #include "richc/str.h"
 #include "richc/arena.h"
+#include <math.h>
 #include <stddef.h>   /* offsetof */
 
 /* ---- GLSL shaders ---- */
@@ -111,12 +112,14 @@ static App g_app;
  * radius (pixels).  half_width is the perpendicular half-thickness in pixels.
  * The star is drawn by connecting every other vertex: 0->2->4->1->3->0.
  */
-static void make_pentagram_lines(line_t *out, float radius, float half_width)
+static void make_pentagram_lines(line_t *out, float radius, float half_width, float time)
 {
-    /* 5 vertices of a regular pentagon, starting from the top. */
+    /* 5 vertices oscillating along the circle, each 72 degrees out of phase. */
     rc_vec2f pts[5];
     for (int i = 0; i < 5; i++) {
-        float angle = rc_deg_to_rad(-90.0f + (float)i * 72.0f);
+        float base  = rc_deg_to_rad(-90.0f + (float)i * 72.0f);
+        float phase = rc_deg_to_rad((float)i * 72.0f);
+        float angle = base + rc_deg_to_rad(15.0f) * sinf(2.0f * time + phase);
         pts[i] = rc_vec2f_scalar_mul(rc_vec2f_make_cossin(angle), radius);
     }
 
@@ -165,8 +168,8 @@ static void setup(App *app)
     app->quad_buf = rc_buffer_make(RC_BUFFER_STATIC);
     rc_buffer_upload(app->quad_buf, k_quad_verts, (uint32_t)sizeof(k_quad_verts));
 
-    /* pentagram line instances */
-    make_pentagram_lines(app->lines, 280.0f, 1.75f);
+    /* pentagram line instances — initial upload to size the buffer */
+    make_pentagram_lines(app->lines, 280.0f, 1.75f, 0.0f);
     app->line_buf = rc_buffer_make(RC_BUFFER_DYNAMIC);
     rc_buffer_upload(app->line_buf, app->lines, (uint32_t)sizeof(app->lines));
 
@@ -198,6 +201,10 @@ static void on_render(void *ctx)
 
     /* Linear mid-grey: sRGB 0.5 linearised via ((0.5 + 0.055) / 1.055)^2.4. */
     rc_gfx_clear(rc_color_make_rgb(0.214f, 0.214f, 0.214f));
+
+    /* Recompute and upload animated line instances. */
+    make_pentagram_lines(app->lines, 280.0f, 1.75f, (float)rc_app_time());
+    rc_buffer_update(app->line_buf, app->lines, (uint32_t)sizeof(app->lines));
 
     /* orthographic projection: pixel coords, origin at window centre, y up */
     rc_vec2i sz = rc_app_size();
