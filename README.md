@@ -130,6 +130,42 @@ rc_gfx_draw(0, 6, 5);   /* 6 vertices, 5 instances */
 
 All draws emit `GL_TRIANGLES`. When an index type other than `NONE` is set, `rc_gfx_draw` uses the index buffer from `rc_bindings.index_buffer`.
 
+### `include/richc/image/image.h` — CPU-side image loading
+
+```c
+rc_image_result rc_image_from_png(rc_view_bytes png_data,
+                                   rc_arena *arena, rc_arena scratch);
+rc_image_result rc_image_load_png(const char *path,
+                                   rc_arena *arena, rc_arena scratch);
+```
+
+Decodes a PNG into a flat pixel buffer allocated from `arena`. Supports 8-bit greyscale (→ R8), RGB (→ RGB8), RGBA (→ RGBA8), greyscale+alpha (→ RGBA8), and indexed/palette (→ RGB8). 16-bit and interlaced images return `RC_IMAGE_ERROR_UNSUPPORTED`.
+
+`rc_image_result` contains an `rc_image` descriptor and an `rc_image_error` code:
+
+```c
+typedef struct {
+    rc_view_bytes   data;    /* non-owning view into arena memory */
+    int32_t         width;
+    int32_t         height;
+    int32_t         stride;  /* bytes per row */
+    rc_pixel_format format;  /* RC_PIXEL_FORMAT_R8 / RGB8 / RGBA8 */
+} rc_image;
+```
+
+`scratch` holds the inflate buffer and raw file bytes — pass a fresh arena and destroy it after the call. Only the decoded pixels are written to `arena`.
+
+```c
+rc_arena arena   = rc_arena_make_default();
+rc_arena scratch = rc_arena_make_default();
+rc_image_result r = rc_image_load_png("tex.png", &arena, scratch);
+rc_arena_destroy(&scratch);
+if (r.error != RC_IMAGE_OK) { /* handle error */ }
+/* r.image.data, .width, .height, .stride, .format */
+```
+
+`richc_image` is a separate static library (depends on richc + miniz) with no dependency on richc_app or OpenGL.
+
 ## Minimal example
 
 ```c
@@ -170,6 +206,7 @@ int main(void)
 | `extern/richc` | v0.1 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
 | `extern/glfw`  | 3.4 | Window creation, input, GL context |
 | `extern/glad`  | glad2 | OpenGL 3.3 core loader (generated at configure time) |
+| `extern/miniz` | HEAD | zlib/DEFLATE for PNG decompression (`richc_image`) |
 
 ## Building
 
