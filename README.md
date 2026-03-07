@@ -50,23 +50,18 @@ Available callbacks: `on_key_down`, `on_key_up`, `on_key_char`, `on_mouse_down`,
 ### `include/richc/gfx/gfx.h` — Frame operations
 
 ```c
-void rc_gfx_viewport              (rc_vec2i size);
-void rc_gfx_clear                 (rc_color color);
-void rc_gfx_clear_depth           (void);
-void rc_gfx_draw_arrays           (uint32_t first, uint32_t count);
-void rc_gfx_draw_arrays_instanced (uint32_t first, uint32_t count, uint32_t instances);
-void rc_gfx_blend_enable          (void);   /* SRC_ALPHA, ONE_MINUS_SRC_ALPHA */
-void rc_gfx_blend_disable         (void);
+void rc_gfx_viewport   (rc_vec2i size);
+void rc_gfx_clear      (rc_color color);
+void rc_gfx_clear_depth(void);
 ```
 
-All draw calls emit `GL_TRIANGLES`. Colors are linear RGBA floats; when sRGB is enabled the GPU encodes them on write.
+Colors are linear RGBA floats; when sRGB is enabled the GPU encodes them on write.
 
 ### `include/richc/gfx/shader.h` — GLSL shaders
 
 ```c
 rc_shader      rc_shader_make    (rc_str vert_src, rc_str frag_src, rc_arena scratch);
 void           rc_shader_destroy (rc_shader sh);
-void           rc_shader_bind    (rc_shader sh);
 rc_uniform_loc rc_shader_loc     (rc_shader sh, const char *name);
 void           rc_shader_set_f32 (rc_uniform_loc loc, float v);
 void           rc_shader_set_i32 (rc_uniform_loc loc, int32_t v);
@@ -76,36 +71,62 @@ void           rc_shader_set_mat4(rc_uniform_loc loc, const float *m);
 
 `rc_shader_make` RC_PANICs on compile or link failure, printing the GL info log to stderr. Query uniform locations once at startup and cache them; a loc with `.loc == -1` (not found) is silently ignored by the setters.
 
-### `include/richc/gfx/buffer.h` — GPU buffers and vertex layout
+### `include/richc/gfx/buffer.h` — GPU buffers
 
 ```c
-/* Buffers */
 rc_buffer rc_buffer_make  (rc_buffer_usage usage);          /* STATIC or DYNAMIC */
-void      rc_buffer_upload(rc_buffer buf, const void *data, uint32_t size); /* glBufferData  */
+void      rc_buffer_upload(rc_buffer buf, const void *data, uint32_t size); /* glBufferData    */
 void      rc_buffer_update(rc_buffer buf, const void *data, uint32_t size); /* glBufferSubData */
 void      rc_buffer_destroy(rc_buffer buf);
-
-/* Vertex arrays */
-rc_vertex_array rc_vertex_array_make   (const rc_attrib_desc *attribs, uint32_t count);
-void            rc_vertex_array_bind   (rc_vertex_array va);
-void            rc_vertex_array_destroy(rc_vertex_array va);
 ```
 
-`rc_buffer_upload` allocates or reallocates GPU storage (`glBufferData`) — use for the initial upload or when the size changes. `rc_buffer_update` writes into existing storage (`glBufferSubData`) — use for per-frame updates of dynamic buffers.
+`rc_buffer_upload` allocates or reallocates GPU storage — use for the initial upload or when the size changes. `rc_buffer_update` writes into existing storage without reallocation — use for per-frame updates of dynamic buffers.
 
-Each `rc_attrib_desc` binds one attribute:
+### `include/richc/gfx/pipeline.h` — Pipeline, bindings, and draw calls
+
+A pipeline bakes together a shader, vertex buffer layouts, attribute formats, index type, and blend state. Buffers are supplied separately at draw time via `rc_bindings`, so the same pipeline can draw different meshes.
 
 ```c
-typedef struct {
-    uint32_t       location;  /* layout(location = N) in the shader */
-    rc_buffer      buffer;
-    rc_attrib_type type;      /* RC_ATTRIB_FLOAT */
-    uint32_t       count;     /* 1–4 components */
-    uint32_t       stride;
-    uint32_t       offset;
-    uint32_t       divisor;   /* 0 = per-vertex, 1 = per-instance */
-} rc_attrib_desc;
+rc_pipeline rc_pipeline_make   (const rc_pipeline_desc *desc);
+void        rc_pipeline_destroy(rc_pipeline pip);
+void        rc_gfx_apply_pipeline(rc_pipeline pip);
+void        rc_gfx_apply_bindings(const rc_bindings *bind);
+void        rc_gfx_draw(uint32_t first, uint32_t count, uint32_t instances);
 ```
+
+`rc_pipeline_desc` combines the shader with up to four buffer slot layouts and up to sixteen attribute descriptors. The attrib list is terminated by an entry with `format == 0`:
+
+```c
+rc_pipeline pip = rc_pipeline_make(&(rc_pipeline_desc) {
+    .shader = sh,
+    .buffer_layouts = {
+        [0] = { .stride = sizeof(rc_vec2f), .divisor = 0 },  /* per-vertex  */
+        [1] = { .stride = sizeof(MyInst),   .divisor = 1 },  /* per-instance */
+    },
+    .attribs = {
+        { .location = 0, .buffer_slot = 0, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = 0 },
+        { .location = 1, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = offsetof(MyInst, pos) },
+    },
+    .index_type = RC_INDEX_TYPE_NONE,
+    .blend      = { .enabled = true },
+});
+```
+
+`rc_attrib_format` tokens: `RC_ATTRIB_FORMAT_FLOAT`, `FLOAT2`, `FLOAT3`, `FLOAT4`.
+`rc_index_type` tokens: `RC_INDEX_TYPE_NONE`, `RC_INDEX_TYPE_UINT16`, `RC_INDEX_TYPE_UINT32`.
+
+Each frame, apply the pipeline first (binds shader and blend state), supply buffer handles via bindings, then draw. Use `instances == 1` for non-instanced draws:
+
+```c
+rc_gfx_apply_pipeline(pip);
+rc_shader_set_mat4(u_mvp, mat);
+rc_gfx_apply_bindings(&(rc_bindings) {
+    .vertex_buffers = { quad_buf, inst_buf },
+});
+rc_gfx_draw(0, 6, 5);   /* 6 vertices, 5 instances */
+```
+
+All draws emit `GL_TRIANGLES`. When an index type other than `NONE` is set, `rc_gfx_draw` uses the index buffer from `rc_bindings.index_buffer`.
 
 ## Minimal example
 
