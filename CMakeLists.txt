@@ -42,19 +42,21 @@ add_library(richc_app STATIC
     src/gfx/shader_gl33.c
     src/gfx/buffer_gl33.c
     src/gfx/pipeline_gl33.c
+    src/image/image.c
     include/richc/app/app.h
     include/richc/app/keys.h
     include/richc/gfx/gfx.h
     include/richc/gfx/shader.h
     include/richc/gfx/buffer.h
     include/richc/gfx/pipeline.h
+    include/richc/image/image.h
 )
 
 target_include_directories(richc_app PUBLIC include)
 
 target_link_libraries(richc_app
     PUBLIC  richc
-    PRIVATE glfw glad OpenGL::GL
+    PRIVATE glfw glad OpenGL::GL miniz
 )
 
 target_compile_definitions(richc_app PRIVATE _CRT_SECURE_NO_WARNINGS)
@@ -65,28 +67,6 @@ else()
     target_compile_options(richc_app PRIVATE -Wall -Wextra)
 endif()
 
-# ---- richc_image ----
-
-add_library(richc_image STATIC
-    src/image/image.c
-    include/richc/image/image.h
-)
-
-target_include_directories(richc_image PUBLIC include)
-
-target_link_libraries(richc_image
-    PUBLIC  richc
-    PRIVATE miniz
-)
-
-target_compile_definitions(richc_image PRIVATE _CRT_SECURE_NO_WARNINGS)
-
-if(MSVC)
-    target_compile_options(richc_image PRIVATE /W3)
-else()
-    target_compile_options(richc_image PRIVATE -Wall -Wextra)
-endif()
-
 # ---- test application ----
 
 add_executable(richc_app_test
@@ -94,7 +74,7 @@ add_executable(richc_app_test
 )
 
 target_link_libraries(richc_app_test
-    PRIVATE richc_app richc_image
+    PRIVATE richc_app
 )
 
 if(MSVC)

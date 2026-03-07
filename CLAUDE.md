@@ -23,8 +23,7 @@ Examples: `RC_APP_H_`, `RC_APP_KEYS_H_`, `RC_APP_GFX_H_`.
 ## Library targets
 | Target | Depends on | Role |
 |--------|-----------|------|
-| `richc_app` | richc, glfw, glad | Window, input, OpenGL pipeline |
-| `richc_image` | richc, miniz | PNG image loading |
+| `richc_app` | richc, glfw, glad, miniz | Window, input, OpenGL pipeline, PNG image loading |
 
 ## Backend abstraction
 The compile-time backend is selected by which `.c` file is compiled.
@@ -90,7 +89,7 @@ include/richc/app/
                                     rc_app_init/destroy/poll/is_running/size/
                                     request_update/request_render/swap_buffers
 include/richc/image/
-  image.h                           — rc_image, rc_pixel_format, rc_image_from_png, rc_image_load_png
+  image.h                         — rc_image, rc_pixel_format, rc_image_from_png, rc_image_load_png
 include/richc/gfx/
   gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth
   shader.h                        — rc_shader, rc_uniform_loc, rc_shader_make/destroy/bind/loc/set_*

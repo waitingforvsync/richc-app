@@ -164,7 +164,7 @@ if (r.error != RC_IMAGE_OK) { /* handle error */ }
 /* r.image.data, .width, .height, .stride, .format */
 ```
 
-`richc_image` is a separate static library (depends on richc + miniz) with no dependency on richc_app or OpenGL.
+Image loading is part of `richc_app`; unused functions will be dead-stripped by the linker.
 
 ## Minimal example
 
@@ -206,7 +206,7 @@ int main(void)
 | `extern/richc` | v0.1 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
 | `extern/glfw`  | 3.4 | Window creation, input, GL context |
 | `extern/glad`  | glad2 | OpenGL 3.3 core loader (generated at configure time) |
-| `extern/miniz` | HEAD | zlib/DEFLATE for PNG decompression (`richc_image`) |
+| `extern/miniz` | HEAD | zlib/DEFLATE for PNG decompression |
 
 ## Building
 
