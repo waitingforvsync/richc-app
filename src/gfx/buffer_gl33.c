@@ -18,14 +18,6 @@ static GLenum to_gl_usage_(rc_buffer_usage usage)
     }
 }
 
-static GLenum to_gl_type_(rc_attrib_type type)
-{
-    switch (type) {
-        case RC_ATTRIB_FLOAT: return GL_FLOAT;
-        default: RC_PANIC(0); return 0; /* unreachable */
-    }
-}
-
 /* ---- buffer ---- */
 
 /*
@@ -89,42 +81,5 @@ void rc_buffer_destroy(rc_buffer buf)
         }
     }
     glDeleteBuffers(1, &buf.id);
-}
-
-/* ---- vertex array ---- */
-
-rc_vertex_array rc_vertex_array_make(const rc_attrib_desc *attribs, uint32_t count)
-{
-    GLuint id = 0;
-    glGenVertexArrays(1, &id);
-    glBindVertexArray(id);
-
-    for (uint32_t i = 0; i < count; i++) {
-        const rc_attrib_desc *a = &attribs[i];
-        glBindBuffer(GL_ARRAY_BUFFER, a->buffer.id);
-        glVertexAttribPointer(
-            a->location,
-            (GLint)a->count,
-            to_gl_type_(a->type),
-            GL_FALSE,
-            (GLsizei)a->stride,
-            (const void *)(uintptr_t)a->offset
-        );
-        glEnableVertexAttribArray(a->location);
-        glVertexAttribDivisor(a->location, a->divisor);
-    }
-
-    glBindVertexArray(0);
-    return (rc_vertex_array) { id };
-}
-
-void rc_vertex_array_bind(rc_vertex_array va)
-{
-    glBindVertexArray(va.id);
-}
-
-void rc_vertex_array_destroy(rc_vertex_array va)
-{
-    glDeleteVertexArrays(1, &va.id);
 }
 

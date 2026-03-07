@@ -21,8 +21,11 @@ Examples: `RC_APP_H_`, `RC_APP_KEYS_H_`, `RC_APP_GFX_H_`.
 
 ## Backend abstraction
 The compile-time backend is selected by which `.c` file is compiled.
-- `src/app/app_glfw.c` — the only file that includes `<GLFW/glfw3.h>` and `<glad/gl.h>`
-- `src/gfx/gfx_gl33.c` — the only file that calls raw GL functions
+- `src/app/app_glfw.c`     — the only file that includes `<GLFW/glfw3.h>` and `<glad/gl.h>`
+- `src/gfx/gfx_gl33.c`    — GL 3.3 clear/viewport
+- `src/gfx/shader_gl33.c` — GL 3.3 shader compilation
+- `src/gfx/buffer_gl33.c` — GL 3.3 buffer upload/update
+- `src/gfx/pipeline_gl33.c` — GL 3.3 pipeline, bindings, draw
 
 Public headers must never include GLFW or glad headers.
 
@@ -80,17 +83,18 @@ include/richc/app/
                                     rc_app_init/destroy/poll/is_running/size/
                                     request_update/request_render/swap_buffers
 include/richc/gfx/
-  gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth,
-                                    rc_primitive, rc_gfx_draw_arrays/instanced,
-                                    rc_gfx_blend_enable/disable
+  gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth
   shader.h                        — rc_shader, rc_uniform_loc, rc_shader_make/destroy/bind/loc/set_*
-  buffer.h                        — rc_buffer, rc_vertex_array, rc_attrib_desc
+  buffer.h                        — rc_buffer, rc_buffer_make/upload/update/destroy
+  pipeline.h                      — rc_pipeline, rc_bindings, rc_attrib_format, rc_index_type,
+                                    rc_pipeline_make/destroy, rc_gfx_apply_pipeline/bindings/draw
 src/app/
   app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions
 src/gfx/
   gfx_gl33.c                      — GL 3.3 implementation of gfx.h
   shader_gl33.c                   — GL 3.3 implementation of shader.h
   buffer_gl33.c                   — GL 3.3 implementation of buffer.h
+  pipeline_gl33.c                 — GL 3.3 implementation of pipeline.h (global VAO, pipeline table)
 test/
   test_app.c                      — pentagram: 5 anti-aliased lines via instanced quad rendering
 ```

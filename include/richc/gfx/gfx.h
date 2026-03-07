@@ -1,12 +1,13 @@
 /*
- * gfx.h - minimal OpenGL 3.3 graphics helpers.
+ * gfx.h - per-frame graphics helpers.
  *
  * Provides a linear RGBA colour type and basic per-frame operations.
  * No OpenGL or GLFW headers are included here; call sites only see richc types.
  *
  * The OpenGL context is created and owned by the app backend (app_glfw.c).
- * These functions operate on the current context and are safe to call after
- * the rc_app handle has been successfully created.
+ * These functions are safe to call after rc_app_init succeeds.
+ *
+ * Pipeline setup, buffer bindings, and draw calls are in pipeline.h.
  *
  * Types
  * -----
@@ -14,9 +15,9 @@
  *
  * Frame helpers
  * -------------
- *   rc_gfx_viewport(size)       — set the GL viewport to (0, 0, w, h).
- *   rc_gfx_clear(color)         — clear the colour buffer.
- *   rc_gfx_clear_depth()        — clear the depth buffer.
+ *   rc_gfx_viewport(size)   — set the GL viewport to (0, 0, w, h).
+ *   rc_gfx_clear(color)     — clear the colour buffer.
+ *   rc_gfx_clear_depth()    — clear the depth buffer.
  */
 
 #ifndef RC_APP_GFX_H_
@@ -61,21 +62,5 @@ void rc_gfx_clear(rc_color color);
 
 /* Clear the depth buffer. */
 void rc_gfx_clear_depth(void);
-
-/* ---- draw calls ---- */
-
-/* Draw count vertices (triangles) starting at first. */
-void rc_gfx_draw_arrays(uint32_t first, uint32_t count);
-
-/* Draw count vertices (triangles), repeated instances times. */
-void rc_gfx_draw_arrays_instanced(uint32_t first, uint32_t count, uint32_t instances);
-
-/* ---- blend state ---- */
-
-/* Enable alpha blending: src=SRC_ALPHA, dst=ONE_MINUS_SRC_ALPHA. */
-void rc_gfx_blend_enable(void);
-
-/* Disable blending. */
-void rc_gfx_blend_disable(void);
 
 #endif /* RC_APP_GFX_H_ */

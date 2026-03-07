@@ -15,6 +15,7 @@
 #include "richc/gfx/gfx.h"
 #include "richc/gfx/shader.h"
 #include "richc/gfx/buffer.h"
+#include "richc/gfx/pipeline.h"
 #include "richc/math/mat44f.h"
 #include "richc/math/math.h"
 #include "richc/math/vec2f.h"
@@ -99,7 +100,7 @@ typedef struct {
     rc_uniform_loc  u_mvp;
     rc_buffer       quad_buf;
     rc_buffer       line_buf;
-    rc_vertex_array va;
+    rc_pipeline     pipeline;
     line_t          lines[5];
 } App;
 
@@ -173,21 +174,27 @@ static void setup(App *app)
     app->line_buf = rc_buffer_make(RC_BUFFER_DYNAMIC);
     rc_buffer_upload(app->line_buf, app->lines, (uint32_t)sizeof(app->lines));
 
-    /* vertex array: per-vertex quad UV + per-instance line data */
-    rc_attrib_desc attribs[] = {
-        /* location  buffer          type              count  stride             offset                               divisor */
-        { 0, app->quad_buf, RC_ATTRIB_FLOAT, 2, 8,                              0,                                       0 },
-        { 1, app->line_buf, RC_ATTRIB_FLOAT, 2, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, start),          1 },
-        { 2, app->line_buf, RC_ATTRIB_FLOAT, 2, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, end),            1 },
-        { 3, app->line_buf, RC_ATTRIB_FLOAT, 2, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, half_thickness), 1 },
-        { 4, app->line_buf, RC_ATTRIB_FLOAT, 4, (uint32_t)sizeof(line_t), (uint32_t)offsetof(line_t, color),          1 },
-    };
-    app->va = rc_vertex_array_make(attribs, (uint32_t)(sizeof(attribs) / sizeof(attribs[0])));
+    /* pipeline: shader + vertex layout + blend state */
+    app->pipeline = rc_pipeline_make(&(rc_pipeline_desc) {
+        .shader = app->shader,
+        .buffer_layouts = {
+            [0] = { .stride = sizeof(rc_vec2f),  .divisor = 0 },   /* slot 0: per-vertex quad UV */
+            [1] = { .stride = sizeof(line_t),    .divisor = 1 },   /* slot 1: per-instance line data */
+        },
+        .attribs = {
+            { .location = 0, .buffer_slot = 0, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = 0 },
+            { .location = 1, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = (uint32_t)offsetof(line_t, start)          },
+            { .location = 2, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = (uint32_t)offsetof(line_t, end)            },
+            { .location = 3, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = (uint32_t)offsetof(line_t, half_thickness) },
+            { .location = 4, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT4, .offset = (uint32_t)offsetof(line_t, color)          },
+        },
+        .blend = { .enabled = true },
+    });
 }
 
 static void teardown(App *app)
 {
-    rc_vertex_array_destroy(app->va);
+    rc_pipeline_destroy(app->pipeline);
     rc_buffer_destroy(app->line_buf);
     rc_buffer_destroy(app->quad_buf);
     rc_shader_destroy(app->shader);
@@ -212,12 +219,12 @@ static void on_render(void *ctx)
     float hh = (float)sz.y * 0.5f;
     rc_mat44f proj = rc_mat44f_make_ortho(-hw, hw, hh, -hh, -1.0f, 1.0f);
 
-    rc_shader_bind(app->shader);
+    rc_gfx_apply_pipeline(app->pipeline);
     rc_shader_set_mat4(app->u_mvp, rc_mat44f_as_floats(&proj));
-
-    rc_vertex_array_bind(app->va);
-    rc_gfx_blend_enable();
-    rc_gfx_draw_arrays_instanced(0, 6, 5);
+    rc_gfx_apply_bindings(&(rc_bindings) {
+        .vertex_buffers = { app->quad_buf, app->line_buf },
+    });
+    rc_gfx_draw(0, 6, 5);
 }
 
 /* ---- main ---- */
