@@ -14,10 +14,17 @@ never appear in the public API.
 | `extern/richc` | v0.1 | Core types (rc_str, rc_vec2i, RC_ASSERT, …) |
 | `extern/glfw`  | 3.4  | Window creation, input events, GL context |
 | `extern/glad`  | HEAD (glad2) | OpenGL 3.3 core loader (generated at configure time via Python) |
+| `extern/miniz` | HEAD | zlib/DEFLATE implementation (PNG decompression) |
 
 ## Header guards
 Same convention as richc: `#ifndef RC_APP_<FILENAME>_H_` / `#define` / `#endif`.
 Examples: `RC_APP_H_`, `RC_APP_KEYS_H_`, `RC_APP_GFX_H_`.
+
+## Library targets
+| Target | Depends on | Role |
+|--------|-----------|------|
+| `richc_app` | richc, glfw, glad | Window, input, OpenGL pipeline |
+| `richc_image` | richc, miniz | PNG image loading |
 
 ## Backend abstraction
 The compile-time backend is selected by which `.c` file is compiled.
@@ -82,12 +89,16 @@ include/richc/app/
   app.h                           — rc_app_callbacks, rc_app_desc,
                                     rc_app_init/destroy/poll/is_running/size/
                                     request_update/request_render/swap_buffers
+include/richc/image/
+  image.h                           — rc_image, rc_pixel_format, rc_image_from_png, rc_image_load_png
 include/richc/gfx/
   gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth
   shader.h                        — rc_shader, rc_uniform_loc, rc_shader_make/destroy/bind/loc/set_*
   buffer.h                        — rc_buffer, rc_buffer_make/upload/update/destroy
   pipeline.h                      — rc_pipeline, rc_bindings, rc_attrib_format, rc_index_type,
                                     rc_pipeline_make/destroy, rc_gfx_apply_pipeline/bindings/draw
+src/image/
+  image.c                         — PNG decoder (miniz inflate + filter reconstruction)
 src/app/
   app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions
 src/gfx/

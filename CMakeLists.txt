@@ -27,6 +27,13 @@ glad_add_library(glad STATIC REPRODUCIBLE API gl:core=3.3 EXTENSIONS NONE)
 
 find_package(OpenGL REQUIRED)
 
+# ---- miniz (zlib/DEFLATE for PNG decompression) ----
+# Uses miniz's own CMakeLists so generate_export_header produces miniz_export.h.
+# BUILD_SHARED_LIBS=OFF forces a static library; examples/tests/install are OFF
+# because MINIZ_STANDALONE_PROJECT is auto-detected as OFF (we are the top project).
+
+add_subdirectory(extern/miniz)
+
 # ---- richc_app ----
 
 add_library(richc_app STATIC
@@ -58,6 +65,28 @@ else()
     target_compile_options(richc_app PRIVATE -Wall -Wextra)
 endif()
 
+# ---- richc_image ----
+
+add_library(richc_image STATIC
+    src/image/image.c
+    include/richc/image/image.h
+)
+
+target_include_directories(richc_image PUBLIC include)
+
+target_link_libraries(richc_image
+    PUBLIC  richc
+    PRIVATE miniz
+)
+
+target_compile_definitions(richc_image PRIVATE _CRT_SECURE_NO_WARNINGS)
+
+if(MSVC)
+    target_compile_options(richc_image PRIVATE /W3)
+else()
+    target_compile_options(richc_image PRIVATE -Wall -Wextra)
+endif()
+
 # ---- test application ----
 
 add_executable(richc_app_test
@@ -65,7 +94,7 @@ add_executable(richc_app_test
 )
 
 target_link_libraries(richc_app_test
-    PRIVATE richc_app
+    PRIVATE richc_app richc_image
 )
 
 if(MSVC)
