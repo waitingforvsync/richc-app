@@ -24,7 +24,7 @@
  * Usage
  * -----
  *   rc_arena scratch = rc_arena_make_default();
- *   rc_image_result r = rc_image_load_png(RC_STR("tex.png"), &arena, scratch);
+ *   rc_image_result r = rc_image_load_png("tex.png", &arena, scratch);
  *   rc_arena_destroy(&scratch);
  *   if (r.error) { ... }
  *   // r.image.data, .width, .height, .stride, .format
@@ -35,7 +35,6 @@
 
 #include <stdint.h>
 #include "richc/bytes.h"
-#include "richc/str.h"
 #include "richc/arena.h"
 
 /* ---- pixel format ---- */
@@ -90,7 +89,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png_data,
  * The raw file bytes are loaded into scratch (disposable); only the decoded
  * pixel data is written to arena.
  */
-rc_image_result rc_image_load_png(rc_str path,
+rc_image_result rc_image_load_png(const char *path,
                                    rc_arena *arena, rc_arena scratch);
 
 #endif /* RC_IMAGE_IMAGE_H_ */

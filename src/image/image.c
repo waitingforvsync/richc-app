@@ -100,21 +100,24 @@ static bool defilter_row_(uint8_t *row, const uint8_t *prev,
 
 /* ---- rc_image_from_png ---- */
 
+static rc_image_result rc_image_result_fail_(rc_image_error e)
+{
+    return (rc_image_result) {{0}, e};
+}
+
 rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena scratch)
 {
-#define FAIL(e)  return (rc_image_result) { {0}, (e) }
-
     /* PNG signature */
     static const uint8_t k_sig[8] = { 0x89,'P','N','G',0x0D,0x0A,0x1A,0x0A };
     if (png.num < 8 || memcmp(png.data, k_sig, 8) != 0)
-        FAIL(RC_IMAGE_ERROR_NOT_PNG);
+        return rc_image_result_fail_(RC_IMAGE_ERROR_NOT_PNG);
 
     const uint8_t *p   = png.data + 8;
     uint32_t       rem = png.num  - 8;
 
     /* IHDR must be the first chunk: length(4) type(4) data(13) crc(4) = 25 bytes */
     if (rem < 25 || u32be_(p) != 13 || u32be_(p + 4) != PNG_IHDR_)
-        FAIL(RC_IMAGE_ERROR_CORRUPT);
+        return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
 
     const uint8_t *ihdr = p + 8;
     uint32_t width  = u32be_(ihdr);
@@ -123,12 +126,12 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
     uint8_t  color_type = ihdr[9];
     uint8_t  interlace  = ihdr[12];
 
-    if (width == 0 || height == 0) FAIL(RC_IMAGE_ERROR_CORRUPT);
-    if (bit_depth  != 8)           FAIL(RC_IMAGE_ERROR_UNSUPPORTED);
-    if (interlace  != 0)           FAIL(RC_IMAGE_ERROR_UNSUPPORTED);
+    if (width == 0 || height == 0) return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
+    if (bit_depth  != 8)           return rc_image_result_fail_(RC_IMAGE_ERROR_UNSUPPORTED);
+    if (interlace  != 0)           return rc_image_result_fail_(RC_IMAGE_ERROR_UNSUPPORTED);
 
     /* Limit dimensions so all byte-count arithmetic stays within uint32_t */
-    if (width > 16384 || height > 16384) FAIL(RC_IMAGE_ERROR_UNSUPPORTED);
+    if (width > 16384 || height > 16384) return rc_image_result_fail_(RC_IMAGE_ERROR_UNSUPPORTED);
 
     /*
      * src_bpp: bytes per pixel in the filtered/compressed stream.
@@ -142,7 +145,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
         case 3: src_bpp = 1; dst_bpp = 3; format = RC_PIXEL_FORMAT_RGB8;  break;
         case 4: src_bpp = 2; dst_bpp = 4; format = RC_PIXEL_FORMAT_RGBA8; break;
         case 6: src_bpp = 4; dst_bpp = 4; format = RC_PIXEL_FORMAT_RGBA8; break;
-        default: FAIL(RC_IMAGE_ERROR_UNSUPPORTED);
+        default: return rc_image_result_fail_(RC_IMAGE_ERROR_UNSUPPORTED);
     }
 
     p   += 4 + 4 + 13 + 4;
@@ -161,7 +164,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
     stream.next_out  = inflate_buf;
     stream.avail_out = inflate_size;
     if (mz_inflateInit(&stream) != MZ_OK)
-        FAIL(RC_IMAGE_ERROR_CORRUPT);
+        return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
 
     /* Palette for indexed colour (color_type == 3) */
     uint8_t palette[256 * 3];
@@ -176,7 +179,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
         /* Guard against a length that would reach outside the buffer */
         if (len > rem - 12) {
             mz_inflateEnd(&stream);
-            FAIL(RC_IMAGE_ERROR_CORRUPT);
+            return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
         }
 
         if (type == PNG_IEND_) break;
@@ -184,7 +187,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
         if (type == PNG_PLTE_) {
             if (len > 256 * 3 || len % 3 != 0) {
                 mz_inflateEnd(&stream);
-                FAIL(RC_IMAGE_ERROR_CORRUPT);
+                return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
             }
             memcpy(palette, cdata, len);
             has_palette = true;
@@ -195,7 +198,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
             int r = mz_inflate(&stream, MZ_NO_FLUSH);
             if (r != MZ_OK && r != MZ_STREAM_END) {
                 mz_inflateEnd(&stream);
-                FAIL(RC_IMAGE_ERROR_CORRUPT);
+                return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
             }
         }
 
@@ -206,16 +209,15 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
     mz_uint leftover = stream.avail_out;
     mz_inflateEnd(&stream);
 
-    if (leftover != 0)                      FAIL(RC_IMAGE_ERROR_CORRUPT);
-    if (color_type == 3 && !has_palette)    FAIL(RC_IMAGE_ERROR_CORRUPT);
+    if (leftover != 0)                   return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
+    if (color_type == 3 && !has_palette) return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
 
     /* Defilter each row in-place in the inflate buffer */
     for (uint32_t y = 0; y < height; y++) {
         uint8_t       *row  = inflate_buf + y * row_bytes;
         const uint8_t *prev = (y > 0) ? inflate_buf + (y - 1) * row_bytes + 1 : NULL;
-        if (!defilter_row_(row, prev, width, src_bpp)) {
-            FAIL(RC_IMAGE_ERROR_CORRUPT);
-        }
+        if (!defilter_row_(row, prev, width, src_bpp))
+            return rc_image_result_fail_(RC_IMAGE_ERROR_CORRUPT);
     }
 
     /* Allocate pixel buffer in the persistent arena */
@@ -258,7 +260,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
 
     return (rc_image_result) {
         .image = {
-            .data   = { pixels, height * stride },
+            .data   = {pixels, height * stride},
             .width  = (int32_t)width,
             .height = (int32_t)height,
             .stride = (int32_t)stride,
@@ -266,23 +268,16 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
         },
         .error = RC_IMAGE_OK,
     };
-
-#undef FAIL
 }
 
 /* ---- rc_image_load_png ---- */
 
-rc_image_result rc_image_load_png(rc_str path, rc_arena *arena, rc_arena scratch)
+rc_image_result rc_image_load_png(const char *path, rc_arena *arena, rc_arena scratch)
 {
-    /* Null-terminate path in scratch for rc_load_binary */
-    char *path_cstr = rc_arena_alloc_type(&scratch, char, path.len + 1);
-    memcpy(path_cstr, path.data, path.len);
-    path_cstr[path.len] = '\0';
-
     /* Load raw PNG bytes into scratch (disposable) */
-    rc_load_binary_result file = rc_load_binary(path_cstr, &scratch);
+    rc_load_binary_result file = rc_load_binary(path, &scratch);
     if (file.error != RC_FILE_OK)
-        return (rc_image_result) { {0}, RC_IMAGE_ERROR_IO };
+        return rc_image_result_fail_(RC_IMAGE_ERROR_IO);
 
     /* Decode; inflate buffer also goes into scratch, pixels go into arena */
     return rc_image_from_png(file.data, arena, scratch);

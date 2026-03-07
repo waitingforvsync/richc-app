@@ -19,8 +19,10 @@
 #include "richc/math/mat44f.h"
 #include "richc/math/math.h"
 #include "richc/math/vec2f.h"
+#include "richc/image/image.h"
 #include "richc/str.h"
 #include "richc/arena.h"
+#include "richc/debug.h"
 #include <math.h>
 #include <stddef.h>   /* offsetof */
 
@@ -245,6 +247,18 @@ int main(void)
 
     setup(&g_app);
 
+    /* Load owl.png from the test directory and verify it decoded correctly. */
+    rc_arena image_arena  = rc_arena_make_default();
+    rc_arena image_scratch = rc_arena_make_default();
+    rc_image_result owl = rc_image_load_png(
+        "test/owl.png", &image_arena, image_scratch);
+    rc_arena_destroy(&image_scratch);
+    RC_PANIC(owl.error == RC_IMAGE_OK);
+    RC_PANIC(owl.image.width  == 512);
+    RC_PANIC(owl.image.height == 512);
+    RC_PANIC(owl.image.format == RC_PIXEL_FORMAT_RGBA8);
+    RC_PANIC(owl.image.data.num == 512 * 512 * 4);
+
     while (rc_app_is_running()) {
         rc_app_poll();
         rc_app_request_render();
@@ -252,5 +266,6 @@ int main(void)
 
     teardown(&g_app);
     rc_app_destroy();
+    rc_arena_destroy(&image_arena);
     return 0;
 }
