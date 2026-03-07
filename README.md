@@ -60,16 +60,18 @@ Colors are linear RGBA floats; when sRGB is enabled the GPU encodes them on writ
 ### `include/richc/gfx/shader.h` — GLSL shaders
 
 ```c
-rc_shader      rc_shader_make    (rc_str vert_src, rc_str frag_src, rc_arena scratch);
-void           rc_shader_destroy (rc_shader sh);
-rc_uniform_loc rc_shader_loc     (rc_shader sh, const char *name);
-void           rc_shader_set_f32 (rc_uniform_loc loc, float v);
-void           rc_shader_set_i32 (rc_uniform_loc loc, int32_t v);
-void           rc_shader_set_vec2(rc_uniform_loc loc, rc_vec2f v);
-void           rc_shader_set_mat4(rc_uniform_loc loc, const float *m);
+rc_shader      rc_shader_make     (rc_str vert_src, rc_str frag_src, rc_arena scratch);
+void           rc_shader_destroy  (rc_shader sh);
+rc_uniform_loc rc_shader_loc      (rc_shader sh, const char *name);
+void           rc_shader_set_f32  (rc_uniform_loc loc, float v);
+void           rc_shader_set_i32  (rc_uniform_loc loc, int32_t v);
+void           rc_shader_set_vec2 (rc_uniform_loc loc, rc_vec2f v);
+void           rc_shader_set_vec3 (rc_uniform_loc loc, rc_vec3f v);
+void           rc_shader_set_vec4 (rc_uniform_loc loc, rc_vec4f v);
+void           rc_shader_set_mat44(rc_uniform_loc loc, rc_mat44f m);
 ```
 
-`rc_shader_make` RC_PANICs on compile or link failure, printing the GL info log to stderr. Query uniform locations once at startup and cache them; a loc with `.loc == -1` (not found) is silently ignored by the setters.
+`rc_shader_make` RC_PANICs on compile or link failure, printing the GL info log to stderr. Query uniform locations once at startup and cache them; a loc with `.loc == -1` (not found) is silently ignored by the setters. Uniform setters must be called after `rc_gfx_apply_pipeline`.
 
 ### `include/richc/gfx/buffer.h` — GPU buffers
 
@@ -119,7 +121,7 @@ Each frame, apply the pipeline first (binds shader and blend state), supply buff
 
 ```c
 rc_gfx_apply_pipeline(pip);
-rc_shader_set_mat4(u_mvp, mat);
+rc_shader_set_mat44(u_mvp, proj);
 rc_gfx_apply_bindings(&(rc_bindings) {
     .vertex_buffers = { quad_buf, inst_buf },
 });

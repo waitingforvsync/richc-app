@@ -91,8 +91,20 @@ void rc_shader_set_vec2(rc_uniform_loc loc, rc_vec2f v)
     glUniform2f(loc.loc, v.x, v.y);
 }
 
-void rc_shader_set_mat4(rc_uniform_loc loc, const float *m)
+void rc_shader_set_vec3(rc_uniform_loc loc, rc_vec3f v)
 {
     if (loc.loc < 0) return;
-    glUniformMatrix4fv(loc.loc, 1, GL_FALSE, m);
+    glUniform3f(loc.loc, v.x, v.y, v.z);
+}
+
+void rc_shader_set_vec4(rc_uniform_loc loc, rc_vec4f v)
+{
+    if (loc.loc < 0) return;
+    glUniform4f(loc.loc, v.x, v.y, v.z, v.w);
+}
+
+void rc_shader_set_mat44(rc_uniform_loc loc, rc_mat44f m)
+{
+    if (loc.loc < 0) return;
+    glUniformMatrix4fv(loc.loc, 1, GL_FALSE, rc_mat44f_as_floats(&m));
 }

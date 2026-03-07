@@ -220,7 +220,7 @@ static void on_render(void *ctx)
     rc_mat44f proj = rc_mat44f_make_ortho(-hw, hw, hh, -hh, -1.0f, 1.0f);
 
     rc_gfx_apply_pipeline(app->pipeline);
-    rc_shader_set_mat4(app->u_mvp, rc_mat44f_as_floats(&proj));
+    rc_shader_set_mat44(app->u_mvp, proj);
     rc_gfx_apply_bindings(&(rc_bindings) {
         .vertex_buffers = { app->quad_buf, app->line_buf },
     });

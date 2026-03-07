@@ -12,9 +12,9 @@
  *   rc_uniform_loc u_tex = rc_shader_loc(sh, "u_texture");
  *
  *   // each frame
- *   rc_shader_bind(sh);
- *   rc_shader_set_mat4(u_mvp, rc_mat44f_as_floats(&proj));
- *   rc_shader_set_i32 (u_tex, 0);
+ *   rc_gfx_apply_pipeline(pip);
+ *   rc_shader_set_mat44(u_mvp, proj);
+ *   rc_shader_set_i32  (u_tex, 0);
  *
  * Error handling
  * --------------
@@ -22,7 +22,7 @@
  *
  * Uniform setters
  * ---------------
- * rc_shader_bind must be called before any rc_shader_set_* call.
+ * rc_gfx_apply_pipeline must be called before any rc_shader_set_* call.
  * A setter whose loc.loc == -1 (uniform not found) is a silent no-op.
  */
 
@@ -33,6 +33,9 @@
 #include "richc/str.h"
 #include "richc/arena.h"
 #include "richc/math/vec2f.h"
+#include "richc/math/vec3f.h"
+#include "richc/math/vec4f.h"
+#include "richc/math/mat44f.h"
 
 /* ---- types ---- */
 
@@ -73,7 +76,13 @@ void rc_shader_set_i32 (rc_uniform_loc loc, int32_t v);
 /* Set vec2 uniform.  No-op when loc.loc == -1. */
 void rc_shader_set_vec2(rc_uniform_loc loc, rc_vec2f v);
 
-/* Set mat4 uniform from 16 column-major floats.  No-op when loc.loc == -1. */
-void rc_shader_set_mat4(rc_uniform_loc loc, const float *m);
+/* Set vec3 uniform.  No-op when loc.loc == -1. */
+void rc_shader_set_vec3(rc_uniform_loc loc, rc_vec3f v);
+
+/* Set vec4 uniform.  No-op when loc.loc == -1. */
+void rc_shader_set_vec4(rc_uniform_loc loc, rc_vec4f v);
+
+/* Set mat4 uniform.  No-op when loc.loc == -1. */
+void rc_shader_set_mat44(rc_uniform_loc loc, rc_mat44f m);
 
 #endif /* RC_GFX_SHADER_H_ */
