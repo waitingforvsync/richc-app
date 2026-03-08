@@ -11,6 +11,7 @@
  */
 
 #include "richc/gfx/pipeline.h"
+#include "texture_gl33_internal.h"
 #include "richc/debug.h"
 #include <glad/gl.h>
 #include <string.h>
@@ -169,6 +170,14 @@ void rc_gfx_apply_bindings(const rc_bindings *bind)
         );
         glEnableVertexAttribArray(a->location);
         glVertexAttribDivisor(a->location, bl->divisor);
+    }
+
+    /* Bind textures to their assigned texture units. */
+    for (int i = 0; i < RC_MAX_TEXTURE_SLOTS; i++) {
+        if (bind->textures[i].id != 0) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, rc_texture_gl_(bind->textures[i]));
+        }
     }
 }
 

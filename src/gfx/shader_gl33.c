@@ -108,3 +108,9 @@ void rc_shader_set_mat44(rc_uniform_loc loc, rc_mat44f m)
     if (loc.loc < 0) return;
     glUniformMatrix4fv(loc.loc, 1, GL_FALSE, rc_mat44f_as_floats(&m));
 }
+
+void rc_shader_set_texture(rc_uniform_loc loc, int32_t slot)
+{
+    if (loc.loc < 0) return;
+    glUniform1i(loc.loc, slot);
+}

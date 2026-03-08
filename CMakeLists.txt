@@ -42,6 +42,7 @@ add_library(richc_app STATIC
     src/gfx/shader_gl33.c
     src/gfx/buffer_gl33.c
     src/gfx/pipeline_gl33.c
+    src/gfx/texture_gl33.c
     src/image/image.c
     include/richc/app/app.h
     include/richc/app/keys.h
@@ -49,6 +50,7 @@ add_library(richc_app STATIC
     include/richc/gfx/shader.h
     include/richc/gfx/buffer.h
     include/richc/gfx/pipeline.h
+    include/richc/gfx/texture.h
     include/richc/image/image.h
 )
 
@@ -82,3 +84,9 @@ if(MSVC)
 else()
     target_compile_options(richc_app_test PRIVATE -Wall -Wextra)
 endif()
+
+# When launched from the VS IDE the working directory defaults to the build
+# folder; set it to the source root so "test/owl.png" resolves correctly.
+set_target_properties(richc_app_test PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)

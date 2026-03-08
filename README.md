@@ -68,7 +68,8 @@ void           rc_shader_set_i32  (rc_uniform_loc loc, int32_t v);
 void           rc_shader_set_vec2 (rc_uniform_loc loc, rc_vec2f v);
 void           rc_shader_set_vec3 (rc_uniform_loc loc, rc_vec3f v);
 void           rc_shader_set_vec4 (rc_uniform_loc loc, rc_vec4f v);
-void           rc_shader_set_mat44(rc_uniform_loc loc, rc_mat44f m);
+void           rc_shader_set_mat44   (rc_uniform_loc loc, rc_mat44f m);
+void           rc_shader_set_texture (rc_uniform_loc loc, int32_t slot);
 ```
 
 `rc_shader_make` RC_PANICs on compile or link failure, printing the GL info log to stderr. Query uniform locations once at startup and cache them; a loc with `.loc == -1` (not found) is silently ignored by the setters. Uniform setters must be called after `rc_gfx_apply_pipeline`.
@@ -117,18 +118,69 @@ rc_pipeline pip = rc_pipeline_make(&(rc_pipeline_desc) {
 `rc_attrib_format` tokens: `RC_ATTRIB_FORMAT_FLOAT`, `FLOAT2`, `FLOAT3`, `FLOAT4`.
 `rc_index_type` tokens: `RC_INDEX_TYPE_NONE`, `RC_INDEX_TYPE_UINT16`, `RC_INDEX_TYPE_UINT32`.
 
-Each frame, apply the pipeline first (binds shader and blend state), supply buffer handles via bindings, then draw. Use `instances == 1` for non-instanced draws:
+Each frame, apply the pipeline first (binds shader and blend state), supply buffer and texture handles via bindings, then draw. Use `instances == 1` for non-instanced draws:
 
 ```c
 rc_gfx_apply_pipeline(pip);
 rc_shader_set_mat44(u_mvp, proj);
 rc_gfx_apply_bindings(&(rc_bindings) {
     .vertex_buffers = { quad_buf, inst_buf },
+    .textures       = { albedo_tex },        /* slot 0 */
 });
 rc_gfx_draw(0, 6, 5);   /* 6 vertices, 5 instances */
 ```
 
-All draws emit `GL_TRIANGLES`. When an index type other than `NONE` is set, `rc_gfx_draw` uses the index buffer from `rc_bindings.index_buffer`.
+`rc_bindings` holds up to four vertex buffer handles, one index buffer handle, and up to eight texture handles (slots 0–7). Slots left as `{0}` are not touched. All draws emit `GL_TRIANGLES`. When an index type other than `NONE` is set, `rc_gfx_draw` uses `rc_bindings.index_buffer`.
+
+### `include/richc/gfx/texture.h` — GPU textures
+
+```c
+rc_texture rc_texture_make   (const rc_texture_desc *desc);
+void       rc_texture_update (rc_texture tex, const void *data);
+void       rc_texture_destroy(rc_texture tex);
+```
+
+`rc_texture_desc` fields:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `width`, `height` | `uint32_t` | Dimensions in pixels |
+| `format` | `rc_texture_format` | `R8`, `RGB8`, or `RGBA8` — numeric values match `rc_pixel_format` so a cast is valid |
+| `usage` | `rc_texture_usage` | `STATIC` or `DYNAMIC` |
+| `wrap` | `rc_texture_wrap` | `REPEAT`, `CLAMP`, or `MIRROR` — applies to both U and V |
+| `filter` | `rc_texture_filter` | `NEAREST` or `LINEAR` — applies to both min and mag |
+| `gen_mipmaps` | `bool` | Generate full mip chain on upload (and on `rc_texture_update`) |
+| `data` | `const void *` | Initial pixel data; `NULL` allocates an empty texture |
+
+`rc_texture_update` replaces the full image (same dimensions and format) and regenerates mipmaps if `gen_mipmaps` was set at creation time.
+
+Typical usage with an `rc_image`:
+
+```c
+rc_texture tex = rc_texture_make(&(rc_texture_desc) {
+    .width       = (uint32_t)img.width,
+    .height      = (uint32_t)img.height,
+    .format      = (rc_texture_format)img.format,   /* cast valid: same values */
+    .usage       = RC_TEXTURE_USAGE_STATIC,
+    .filter      = RC_TEXTURE_FILTER_LINEAR,
+    .wrap        = RC_TEXTURE_WRAP_CLAMP,
+    .gen_mipmaps = true,
+    .data        = img.data.data,
+});
+
+/* Tell the shader which unit the sampler reads from (set once at startup): */
+rc_shader_bind(sh);
+rc_shader_set_texture(u_tex_loc, 0);   /* sampler2D → texture unit 0 */
+```
+
+Bind the texture each frame via `rc_bindings.textures[]`:
+
+```c
+rc_gfx_apply_bindings(&(rc_bindings) {
+    .vertex_buffers = { vbuf },
+    .textures       = { tex },   /* binds tex to GL_TEXTURE0 */
+});
+```
 
 ### `include/richc/image/image.h` — CPU-side image loading
 

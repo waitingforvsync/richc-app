@@ -1,13 +1,11 @@
 /*
- * test_app.c - pentagram drawn with anti-aliased instanced lines.
+ * test_app.c - pentagram + textured owl quad.
  *
- * Each of the 5 line segments is submitted as one instance of a unit quad.
- * The vertex shader maps the quad's (U, V) UVs to world-space positions using
- * the per-instance start/end and half-thickness vectors.  The fragment shader
- * derives alpha from fwidth(U) to produce a 1-pixel soft edge.
+ * Left side: owl.png rendered as a filtered 128×128-NDC-unit square.
+ * Right side: the animated pentagram (5 anti-aliased instanced lines).
  *
  * No GL calls appear here; everything goes through the rc_gfx / rc_shader /
- * rc_buffer / rc_vertex_array / rc_app APIs.
+ * rc_buffer / rc_pipeline / rc_texture / rc_app APIs.
  */
 
 #include "richc/app/app.h"
@@ -16,6 +14,7 @@
 #include "richc/gfx/shader.h"
 #include "richc/gfx/buffer.h"
 #include "richc/gfx/pipeline.h"
+#include "richc/gfx/texture.h"
 #include "richc/math/mat44f.h"
 #include "richc/math/math.h"
 #include "richc/math/vec2f.h"
@@ -26,7 +25,9 @@
 #include <math.h>
 #include <stddef.h>   /* offsetof */
 
-/* ---- GLSL shaders ---- */
+/* ======================================================================== */
+/* Pentagram shaders                                                         */
+/* ======================================================================== */
 
 /*
  * Vertex shader
@@ -39,13 +40,13 @@
  *
  * Position = lerp(start, end, V) + half_thick * U
  */
-static const char k_vert_src[] =
+static const char k_line_vert_src[] =
     "#version 330 core\n"
     "\n"
     "layout(location = 0) in vec2 a_uv;\n"
     "layout(location = 1) in vec2 a_start;\n"
     "layout(location = 2) in vec2 a_end;\n"
-    "layout(location = 3) in vec2 a_half_thick;\n"
+    "layout(location = 3) in float a_half_thick;\n"
     "layout(location = 4) in vec4 a_color;\n"
     "\n"
     "uniform mat4 u_mvp;\n"
@@ -55,7 +56,9 @@ static const char k_vert_src[] =
     "\n"
     "void main()\n"
     "{\n"
-    "    vec2 pos    = mix(a_start, a_end, a_uv.y) + a_half_thick * a_uv.x;\n"
+    "    vec2 dir    = normalize(a_end - a_start);\n"
+    "    vec2 perp   = vec2(-dir.y, dir.x);\n"
+    "    vec2 pos    = mix(a_start, a_end, a_uv.y) + perp * a_half_thick * a_uv.x;\n"
     "    gl_Position = u_mvp * vec4(pos, 0.0, 1.0);\n"
     "    v_uv        = a_uv;\n"
     "    v_color     = a_color;\n"
@@ -67,7 +70,7 @@ static const char k_vert_src[] =
  * Derives alpha from fwidth(U): the edge falls off over one screen pixel on
  * each side, giving smooth anti-aliasing regardless of scale.
  */
-static const char k_frag_src[] =
+static const char k_line_frag_src[] =
     "#version 330 core\n"
     "\n"
     "in  vec2 v_uv;\n"
@@ -82,42 +85,94 @@ static const char k_frag_src[] =
     "    frag_color  = vec4(v_color.rgb, v_color.a * alpha);\n"
     "}\n";
 
-/* ---- line instance struct ---- */
+/* ======================================================================== */
+/* Textured-quad shaders                                                     */
+/* ======================================================================== */
 
 /*
- * One entry per line segment.  Layout must match the attribute descriptors
- * given to rc_vertex_array_make and the per-instance inputs in k_vert_src.
+ * Vertex shader: NDC positions + UV passthrough.
+ * a_pos (location 0): xy in NDC
+ * a_uv  (location 1): texture coordinate
  */
+static const char k_tex_vert_src[] =
+    "#version 330 core\n"
+    "\n"
+    "layout(location = 0) in vec2 a_pos;\n"
+    "layout(location = 1) in vec2 a_uv;\n"
+    "\n"
+    "out vec2 v_uv;\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = vec4(a_pos, 0.0, 1.0);\n"
+    "    v_uv        = a_uv;\n"
+    "}\n";
+
+/*
+ * Fragment shader: sample from texture unit 0.
+ */
+static const char k_tex_frag_src[] =
+    "#version 330 core\n"
+    "\n"
+    "uniform sampler2D u_tex;\n"
+    "\n"
+    "in  vec2 v_uv;\n"
+    "out vec4 frag_color;\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    frag_color = texture(u_tex, v_uv);\n"
+    "}\n";
+
+/* ======================================================================== */
+/* Line instance struct                                                      */
+/* ======================================================================== */
+
 typedef struct {
-    rc_vec2f start;           /* world-space start point */
-    rc_vec2f end;             /* world-space end point   */
-    rc_vec2f half_thickness;  /* perpendicular half-width vector */
-    rc_color color;           /* RGBA (float) */
+    rc_vec2f start;
+    rc_vec2f end;
+    float    half_thickness;
+    rc_color color;
 } line_t;
 
-/* ---- application context ---- */
+/* ======================================================================== */
+/* Textured-quad vertex struct                                               */
+/* ======================================================================== */
 
 typedef struct {
-    rc_shader       shader;
-    rc_uniform_loc  u_mvp;
-    rc_buffer       quad_buf;
-    rc_buffer       line_buf;
-    rc_pipeline     pipeline;
-    line_t          lines[5];
+    float x, y;    /* NDC position */
+    float u, v;    /* texture coordinate */
+} quad_vert_t;
+
+/* ======================================================================== */
+/* Application context                                                       */
+/* ======================================================================== */
+
+typedef struct {
+    /* --- pentagram --- */
+    rc_shader      line_shader;
+    rc_uniform_loc u_mvp;
+    rc_buffer      line_quad_buf;
+    rc_buffer      line_inst_buf;
+    rc_pipeline    line_pipeline;
+    line_t         lines[5];
+
+    /* --- textured quad --- */
+    rc_shader      tex_shader;
+    rc_uniform_loc u_tex;
+    rc_buffer      tex_quad_buf;
+    rc_pipeline    tex_pipeline;
+    rc_texture     owl_tex;
 } App;
 
 static App g_app;
 
-/* ---- pentagram geometry ---- */
+/* ======================================================================== */
+/* Pentagram geometry                                                        */
+/* ======================================================================== */
 
-/*
- * Build the 5 line segments of a pentagram inscribed in a circle of the given
- * radius (pixels).  half_width is the perpendicular half-thickness in pixels.
- * The star is drawn by connecting every other vertex: 0->2->4->1->3->0.
- */
 static void make_pentagram_lines(line_t *out, float radius, float half_width, float time)
 {
-    /* 5 vertices oscillating along the circle, each 72 degrees out of phase. */
     rc_vec2f pts[5];
     for (int i = 0; i < 5; i++) {
         float base  = rc_deg_to_rad(-90.0f + (float)i * 72.0f);
@@ -126,83 +181,148 @@ static void make_pentagram_lines(line_t *out, float radius, float half_width, fl
         pts[i] = rc_vec2f_scalar_mul(rc_vec2f_make_cossin(angle), radius);
     }
 
-    /* Connect alternating vertices to form the star. */
     static const int order[6] = {0, 2, 4, 1, 3, 0};
     for (int i = 0; i < 5; i++) {
-        rc_vec2f start = pts[order[i]];
-        rc_vec2f end   = pts[order[i + 1]];
-        rc_vec2f dir   = rc_vec2f_sub(end, start);
-        rc_vec2f perp  = rc_vec2f_scalar_mul(
-                             rc_vec2f_normalize(rc_vec2f_perp(dir)),
-                             half_width);
         out[i] = (line_t) {
-            .start          = start,
-            .end            = end,
-            .half_thickness = perp,
+            .start          = pts[order[i]],
+            .end            = pts[order[i + 1]],
+            .half_thickness = half_width,
             .color          = rc_color_make(0.0f, 0.0f, 0.0f, 1.0f),
         };
     }
 }
 
-/* ---- setup / teardown ---- */
+/* ======================================================================== */
+/* Textured-quad geometry                                                    */
+/* ======================================================================== */
+
+/*
+ * A 128×128-NDC-unit square to the left of the pentagram.
+ * NDC extents: x in [-0.95, -0.35], y in [-0.45, 0.35].
+ * UV: (0,0) top-left, (1,1) bottom-right (OpenGL convention: V=0 is bottom).
+ * We flip V so the image reads top-to-bottom: top of image → V=1.
+ */
+static const quad_vert_t k_tex_quad_verts[] = {
+    /* triangle 1 */
+    { -0.95f, -0.45f,  0.0f, 1.0f },
+    { -0.35f, -0.45f,  1.0f, 1.0f },
+    { -0.35f,  0.35f,  1.0f, 0.0f },
+    /* triangle 2 */
+    { -0.95f, -0.45f,  0.0f, 1.0f },
+    { -0.35f,  0.35f,  1.0f, 0.0f },
+    { -0.95f,  0.35f,  0.0f, 0.0f },
+};
+
+/* ======================================================================== */
+/* Pentagram unit-quad vertices                                              */
+/* ======================================================================== */
 
 /*
  * Unit quad: 6 vertices (two triangles).
  *   (-1, 0) --- (+1, 0)    V=0  (line start)
  *   (-1, 1) --- (+1, 1)    V=1  (line end)
- * U spans [-1, +1] across the line width; the vertex shader offsets
- * by half_thick * U to produce the actual screen position.
  */
-static const float k_quad_verts[] = {
+static const float k_line_quad_verts[] = {
     -1.0f, 0.0f,   +1.0f, 0.0f,   +1.0f, 1.0f,   /* triangle 1 */
     -1.0f, 0.0f,   +1.0f, 1.0f,   -1.0f, 1.0f,   /* triangle 2 */
 };
 
-static void setup(App *app)
+/* ======================================================================== */
+/* Setup / teardown                                                          */
+/* ======================================================================== */
+
+static void setup(App *app, const rc_image_result *owl)
 {
-    /* compile and link the line shader */
     rc_arena scratch = rc_arena_make_default();
-    app->shader = rc_shader_make(rc_str_make(k_vert_src), rc_str_make(k_frag_src), scratch);
-    rc_arena_destroy(&scratch);
 
-    app->u_mvp = rc_shader_loc(app->shader, "u_mvp");
+    /* --- pentagram --- */
+    app->line_shader = rc_shader_make(
+        rc_str_make(k_line_vert_src), rc_str_make(k_line_frag_src), scratch);
+    app->u_mvp = rc_shader_loc(app->line_shader, "u_mvp");
 
-    /* static quad buffer (shared template for all line instances) */
-    app->quad_buf = rc_buffer_make(RC_BUFFER_STATIC);
-    rc_buffer_upload(app->quad_buf, k_quad_verts, (uint32_t)sizeof(k_quad_verts));
+    app->line_quad_buf = rc_buffer_make(RC_BUFFER_STATIC);
+    rc_buffer_upload(app->line_quad_buf,
+                     k_line_quad_verts, (uint32_t)sizeof(k_line_quad_verts));
 
-    /* pentagram line instances — initial upload to size the buffer */
     make_pentagram_lines(app->lines, 280.0f, 1.75f, 0.0f);
-    app->line_buf = rc_buffer_make(RC_BUFFER_DYNAMIC);
-    rc_buffer_upload(app->line_buf, app->lines, (uint32_t)sizeof(app->lines));
+    app->line_inst_buf = rc_buffer_make(RC_BUFFER_DYNAMIC);
+    rc_buffer_upload(app->line_inst_buf, app->lines, (uint32_t)sizeof(app->lines));
 
-    /* pipeline: shader + vertex layout + blend state */
-    app->pipeline = rc_pipeline_make(&(rc_pipeline_desc) {
-        .shader = app->shader,
+    app->line_pipeline = rc_pipeline_make(&(rc_pipeline_desc) {
+        .shader = app->line_shader,
         .buffer_layouts = {
-            [0] = { .stride = sizeof(rc_vec2f),  .divisor = 0 },   /* slot 0: per-vertex quad UV */
-            [1] = { .stride = sizeof(line_t),    .divisor = 1 },   /* slot 1: per-instance line data */
+            [0] = { .stride = sizeof(rc_vec2f), .divisor = 0 },
+            [1] = { .stride = sizeof(line_t),   .divisor = 1 },
         },
         .attribs = {
             { .location = 0, .buffer_slot = 0, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = 0 },
             { .location = 1, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = (uint32_t)offsetof(line_t, start)          },
             { .location = 2, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = (uint32_t)offsetof(line_t, end)            },
-            { .location = 3, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = (uint32_t)offsetof(line_t, half_thickness) },
+            { .location = 3, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT,  .offset = (uint32_t)offsetof(line_t, half_thickness) },
             { .location = 4, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT4, .offset = (uint32_t)offsetof(line_t, color)          },
         },
         .blend = { .enabled = true },
     });
+
+    /* --- textured quad --- */
+    app->tex_shader = rc_shader_make(
+        rc_str_make(k_tex_vert_src), rc_str_make(k_tex_frag_src), scratch);
+    app->u_tex = rc_shader_loc(app->tex_shader, "u_tex");
+
+    app->tex_quad_buf = rc_buffer_make(RC_BUFFER_STATIC);
+    rc_buffer_upload(app->tex_quad_buf,
+                     k_tex_quad_verts, (uint32_t)sizeof(k_tex_quad_verts));
+
+    app->tex_pipeline = rc_pipeline_make(&(rc_pipeline_desc) {
+        .shader = app->tex_shader,
+        .buffer_layouts = {
+            [0] = { .stride = sizeof(quad_vert_t), .divisor = 0 },
+        },
+        .attribs = {
+            { .location = 0, .buffer_slot = 0, .format = RC_ATTRIB_FORMAT_FLOAT2,
+              .offset = (uint32_t)offsetof(quad_vert_t, x) },
+            { .location = 1, .buffer_slot = 0, .format = RC_ATTRIB_FORMAT_FLOAT2,
+              .offset = (uint32_t)offsetof(quad_vert_t, u) },
+        },
+        .index_type = RC_INDEX_TYPE_NONE,
+        .blend      = { .enabled = false },
+    });
+
+    /* Upload owl texture and set the sampler uniform once. */
+    app->owl_tex = rc_texture_make(&(rc_texture_desc) {
+        .width       = (uint32_t)owl->image.width,
+        .height      = (uint32_t)owl->image.height,
+        .format      = RC_TEXTURE_FORMAT_RGBA8,
+        .usage       = RC_TEXTURE_USAGE_STATIC,
+        .filter      = RC_TEXTURE_FILTER_LINEAR,
+        .wrap        = RC_TEXTURE_WRAP_CLAMP,
+        .gen_mipmaps = true,
+        .data        = owl->image.data.data,
+    });
+
+    /* Bind tex shader and set sampler to slot 0 (only needs to be done once). */
+    rc_shader_bind(app->tex_shader);
+    rc_shader_set_texture(app->u_tex, 0);
+
+    rc_arena_destroy(&scratch);
 }
 
 static void teardown(App *app)
 {
-    rc_pipeline_destroy(app->pipeline);
-    rc_buffer_destroy(app->line_buf);
-    rc_buffer_destroy(app->quad_buf);
-    rc_shader_destroy(app->shader);
+    rc_texture_destroy(app->owl_tex);
+    rc_pipeline_destroy(app->tex_pipeline);
+    rc_buffer_destroy(app->tex_quad_buf);
+    rc_shader_destroy(app->tex_shader);
+
+    rc_pipeline_destroy(app->line_pipeline);
+    rc_buffer_destroy(app->line_inst_buf);
+    rc_buffer_destroy(app->line_quad_buf);
+    rc_shader_destroy(app->line_shader);
 }
 
-/* ---- render callback ---- */
+/* ======================================================================== */
+/* Render callback                                                           */
+/* ======================================================================== */
 
 static void on_render(void *ctx)
 {
@@ -211,25 +331,34 @@ static void on_render(void *ctx)
     /* Linear mid-grey: sRGB 0.5 linearised via ((0.5 + 0.055) / 1.055)^2.4. */
     rc_gfx_clear(rc_color_make_rgb(0.214f, 0.214f, 0.214f));
 
-    /* Recompute and upload animated line instances. */
+    /* --- pentagram --- */
     make_pentagram_lines(app->lines, 280.0f, 1.75f, (float)rc_app_time());
-    rc_buffer_update(app->line_buf, app->lines, (uint32_t)sizeof(app->lines));
+    rc_buffer_update(app->line_inst_buf, app->lines, (uint32_t)sizeof(app->lines));
 
-    /* orthographic projection: pixel coords, origin at window centre, y up */
     rc_vec2i sz = rc_app_size();
     float hw = (float)sz.x * 0.5f;
     float hh = (float)sz.y * 0.5f;
     rc_mat44f proj = rc_mat44f_make_ortho(-hw, hw, hh, -hh, -1.0f, 1.0f);
 
-    rc_gfx_apply_pipeline(app->pipeline);
+    rc_gfx_apply_pipeline(app->line_pipeline);
     rc_shader_set_mat44(app->u_mvp, proj);
     rc_gfx_apply_bindings(&(rc_bindings) {
-        .vertex_buffers = { app->quad_buf, app->line_buf },
+        .vertex_buffers = { app->line_quad_buf, app->line_inst_buf },
     });
     rc_gfx_draw(0, 6, 5);
+
+    /* --- textured owl quad --- */
+    rc_gfx_apply_pipeline(app->tex_pipeline);
+    rc_gfx_apply_bindings(&(rc_bindings) {
+        .vertex_buffers = { app->tex_quad_buf },
+        .textures       = { app->owl_tex },
+    });
+    rc_gfx_draw(0, 6, 1);
 }
 
-/* ---- main ---- */
+/* ======================================================================== */
+/* main                                                                      */
+/* ======================================================================== */
 
 int main(void)
 {
@@ -245,9 +374,7 @@ int main(void)
         },
     });
 
-    setup(&g_app);
-
-    /* Load owl.png from the test directory and verify it decoded correctly. */
+    /* Load owl.png and verify it decoded correctly. */
     rc_arena image_arena  = rc_arena_make_default();
     rc_arena image_scratch = rc_arena_make_default();
     rc_image_result owl = rc_image_load_png(
@@ -258,6 +385,8 @@ int main(void)
     RC_PANIC(owl.image.height == 512);
     RC_PANIC(owl.image.format == RC_PIXEL_FORMAT_RGBA8);
     RC_PANIC(owl.image.data.num == 512 * 512 * 4);
+
+    setup(&g_app, &owl);
 
     while (rc_app_is_running()) {
         rc_app_poll();

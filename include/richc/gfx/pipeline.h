@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include "richc/gfx/buffer.h"
 #include "richc/gfx/shader.h"
+#include "richc/gfx/texture.h"
 
 /* ---- vertex attribute format ---- */
 
@@ -80,6 +81,7 @@ typedef struct {
 
 #define RC_MAX_VERTEX_BUFFERS  4
 #define RC_MAX_VERTEX_ATTRIBS 16
+#define RC_MAX_TEXTURE_SLOTS   8
 
 typedef struct {
     rc_shader        shader;
@@ -95,8 +97,9 @@ typedef struct { uint32_t id; } rc_pipeline;
 /* ---- bindings ---- */
 
 typedef struct {
-    rc_buffer vertex_buffers[RC_MAX_VERTEX_BUFFERS];
-    rc_buffer index_buffer;   /* {0} = none */
+    rc_buffer  vertex_buffers[RC_MAX_VERTEX_BUFFERS];
+    rc_buffer  index_buffer;                         /* {0} = none */
+    rc_texture textures[RC_MAX_TEXTURE_SLOTS];       /* {0} = unbound */
 } rc_bindings;
 
 /* ---- pipeline API ---- */

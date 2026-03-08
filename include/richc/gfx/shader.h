@@ -85,4 +85,7 @@ void rc_shader_set_vec4(rc_uniform_loc loc, rc_vec4f v);
 /* Set mat4 uniform.  No-op when loc.loc == -1. */
 void rc_shader_set_mat44(rc_uniform_loc loc, rc_mat44f m);
 
+/* Set sampler2D uniform to a texture unit slot.  No-op when loc.loc == -1. */
+void rc_shader_set_texture(rc_uniform_loc loc, int32_t slot);
+
 #endif /* RC_GFX_SHADER_H_ */
