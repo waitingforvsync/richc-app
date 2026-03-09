@@ -11,7 +11,7 @@ never appear in the public API.
 ## Dependencies
 | Submodule | Tag | Role |
 |-----------|-----|------|
-| `extern/richc` | v0.1 | Core types (rc_str, rc_vec2i, RC_ASSERT, …) |
+| `extern/richc` | V0.3 | Core types (rc_str, rc_vec2i, RC_ASSERT, …) |
 | `extern/glfw`  | 3.4  | Window creation, input events, GL context |
 | `extern/glad`  | HEAD (glad2) | OpenGL 3.3 core loader (generated at configure time via Python) |
 | `extern/miniz` | HEAD | zlib/DEFLATE implementation (PNG decompression) |
@@ -81,7 +81,7 @@ Configure and build with VS 2022 (MSVC):
 CMakeLists.txt                    — build system
 CLAUDE.md                         — this file
 extern/
-  richc/                          — richc v0.1 submodule
+  richc/                          — richc V0.3 submodule
   glfw/                           — GLFW 3.4 submodule
   glad/                           — glad2 submodule (Python-based GL loader)
 include/richc/app/
@@ -90,7 +90,10 @@ include/richc/app/
                                     rc_app_init/destroy/poll/is_running/size/
                                     request_update/request_render/swap_buffers
 include/richc/image/
-  image.h                         — rc_image, rc_pixel_format, rc_image_from_png, rc_image_load_png
+  image.h                         — rc_image (data: rc_span_bytes, mutable), rc_pixel_format,
+                                    rc_pixel_format_bytes_per_pixel,
+                                    rc_image_make, rc_image_make_subimage, rc_image_blit,
+                                    rc_image_from_png, rc_image_load_png
 include/richc/gfx/
   gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth
   shader.h                        — rc_shader, rc_uniform_loc, rc_shader_make/destroy/bind/loc/set_*
@@ -100,7 +103,8 @@ include/richc/gfx/
   texture.h                       — rc_texture, rc_texture_desc, rc_texture_format/usage/wrap/filter,
                                     rc_texture_make/update/destroy
 src/image/
-  image.c                         — PNG decoder (miniz inflate + filter reconstruction)
+  image.c                         — PNG decoder (miniz inflate + filter reconstruction);
+                                    rc_image_make/make_subimage/blit
 src/app/
   app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions
 src/gfx/
