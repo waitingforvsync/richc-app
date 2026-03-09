@@ -3,26 +3,22 @@
  *
  * Usage
  * -----
- *   rc_app_callbacks cb = {0};
- *   cb.ctx        = &state;
- *   cb.on_key_down = my_key_down;
- *   cb.on_render   = my_render;
- *
- *   rc_app_desc desc = {0};
- *   desc.title     = RC_STR("My App");
- *   desc.width     = 1280;
- *   desc.height    = 720;
- *   desc.resizable = true;
- *   desc.callbacks = cb;
- *
- *   rc_app *app = rc_app_make(&desc);
- *   while (rc_app_is_running(app)) {
- *       rc_app_poll(app);
- *       rc_app_request_update(app);
- *       rc_app_request_render(app);
- *       rc_app_swap(app);
+ *   rc_app_init(&(rc_app_desc) {
+ *       .title     = RC_STR("My App"),
+ *       .size      = { 1280, 720 },
+ *       .resizable = true,
+ *       .callbacks = {
+ *           .ctx        = &state,
+ *           .on_key_down = my_key_down,
+ *           .on_render   = my_render,
+ *       },
+ *   });
+ *   while (rc_app_is_running()) {
+ *       rc_app_poll();
+ *       rc_app_request_update();
+ *       rc_app_request_render();
  *   }
- *   rc_app_destroy(app);
+ *   rc_app_destroy();
  *
  * Update and render callbacks
  * ---------------------------
@@ -92,8 +88,7 @@ typedef struct {
 
 typedef struct {
     rc_str   title;
-    int32_t  width;
-    int32_t  height;
+    rc_vec2i size;
     bool     resizable;
 
     /* Graphics hints */

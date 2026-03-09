@@ -363,8 +363,7 @@ int main(void)
 {
     rc_app_init(&(rc_app_desc) {
         .title     = RC_STR("richc-app test"),
-        .width     = 1280,
-        .height    = 720,
+        .size      = { 1280, 720 },
         .resizable = true,
         .srgb      = true,
         .callbacks = {

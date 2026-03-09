@@ -158,7 +158,7 @@ void rc_app_init(const rc_app_desc *desc)
     char title_buf[256];
     const char *title_cstr = rc_str_as_cstr(desc->title, title_buf, (uint32_t)sizeof(title_buf));
 
-    app_.window = glfwCreateWindow(desc->width, desc->height,
+    app_.window = glfwCreateWindow(desc->size.x, desc->size.y,
                                    title_cstr ? title_cstr : "", NULL, NULL);
     RC_PANIC(app_.window != NULL);
 

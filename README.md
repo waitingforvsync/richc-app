@@ -27,8 +27,7 @@ Callbacks are declared in `rc_app_callbacks` and passed via `rc_app_desc`:
 ```c
 rc_app_init(&(rc_app_desc) {
     .title     = RC_STR("My App"),
-    .width     = 1280,
-    .height    = 720,
+    .size      = { 1280, 720 },
     .resizable = true,
     .srgb      = true,
     .callbacks = {
