@@ -81,7 +81,7 @@ Configure and build with VS 2022 (MSVC):
 CMakeLists.txt                    — build system
 CLAUDE.md                         — this file
 extern/
-  richc/                          — richc V0.3 submodule
+  richc/                          — richc V0.4 submodule
   glfw/                           — GLFW 3.4 submodule
   glad/                           — glad2 submodule (Python-based GL loader)
 include/richc/app/
@@ -94,6 +94,8 @@ include/richc/image/
                                     rc_pixel_format_bytes_per_pixel,
                                     rc_image_make, rc_image_make_subimage, rc_image_blit,
                                     rc_image_from_png, rc_image_load_png
+  array_image.h                   — rc_view_image, rc_span_image, rc_array_image (template instantiation)
+  image_pack.h                    — rc_image_pack_result, rc_image_pack (Maximal Rectangles / BSSF atlas packer)
 include/richc/gfx/
   gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth
   shader.h                        — rc_shader, rc_uniform_loc, rc_shader_make/destroy/bind/loc/set_*
@@ -105,6 +107,7 @@ include/richc/gfx/
 src/image/
   image.c                         — PNG decoder (miniz inflate + filter reconstruction);
                                     rc_image_make/make_subimage/blit
+  image_pack.c                    — rc_image_pack implementation; indirect sort + swap-remove free-rect splitting
 src/app/
   app_glfw.c                      — GLFW + glad backend; defines struct rc_app_ and implements rc_app_* functions
 src/gfx/
@@ -115,5 +118,5 @@ src/gfx/
   texture_gl33.c                  — GL 3.3 implementation of texture.h (flat table, swap-remove)
   texture_gl33_internal.h         — internal helper rc_texture_gl_() used by pipeline_gl33.c
 test/
-  test_app.c                      — pentagram: 5 anti-aliased lines via instanced quad rendering
+  test_app.c                      — pentagram + owl texture quad + packed atlas quad (24 solid-colour images)
 ```
