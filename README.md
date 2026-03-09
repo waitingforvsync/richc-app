@@ -144,7 +144,7 @@ void       rc_texture_destroy(rc_texture tex);
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `width`, `height` | `uint32_t` | Dimensions in pixels |
+| `size` | `rc_vec2i` | Width (`.x`) and height (`.y`) in pixels |
 | `format` | `rc_texture_format` | `R8`, `RGB8`, or `RGBA8` — numeric values match `rc_pixel_format` so a cast is valid |
 | `usage` | `rc_texture_usage` | `STATIC` or `DYNAMIC` |
 | `wrap` | `rc_texture_wrap` | `REPEAT`, `CLAMP`, or `MIRROR` — applies to both U and V |
@@ -158,8 +158,7 @@ Typical usage with an `rc_image`:
 
 ```c
 rc_texture tex = rc_texture_make(&(rc_texture_desc) {
-    .width       = (uint32_t)img.size.x,
-    .height      = (uint32_t)img.size.y,
+    .size        = img.size,
     .format      = (rc_texture_format)img.format,   /* cast valid: same values */
     .usage       = RC_TEXTURE_USAGE_STATIC,
     .filter      = RC_TEXTURE_FILTER_LINEAR,

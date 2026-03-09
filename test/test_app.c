@@ -290,8 +290,7 @@ static void setup(App *app, const rc_image_result *owl)
 
     /* Upload owl texture and set the sampler uniform once. */
     app->owl_tex = rc_texture_make(&(rc_texture_desc) {
-        .width       = (uint32_t)owl->image.size.x,
-        .height      = (uint32_t)owl->image.size.y,
+        .size        = owl->image.size,
         .format      = RC_TEXTURE_FORMAT_RGBA8,
         .usage       = RC_TEXTURE_USAGE_STATIC,
         .filter      = RC_TEXTURE_FILTER_LINEAR,

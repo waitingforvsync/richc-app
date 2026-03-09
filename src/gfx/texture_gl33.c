@@ -18,8 +18,7 @@
 typedef struct {
     uint32_t          id;
     GLuint            gl_tex;
-    uint32_t          width;
-    uint32_t          height;
+    rc_vec2i          size;
     rc_texture_format format;
     bool              gen_mipmaps;
 } tex_entry_;
@@ -119,8 +118,8 @@ rc_texture rc_texture_make(const rc_texture_desc *desc)
         GL_TEXTURE_2D,
         0,
         internal_fmt,
-        (GLsizei)desc->width,
-        (GLsizei)desc->height,
+        (GLsizei)desc->size.x,
+        (GLsizei)desc->size.y,
         0,
         base_fmt,
         GL_UNSIGNED_BYTE,
@@ -134,8 +133,7 @@ rc_texture rc_texture_make(const rc_texture_desc *desc)
     tex_table_[tex_count_] = (tex_entry_) {
         .id          = id,
         .gl_tex      = gl_tex,
-        .width       = desc->width,
-        .height      = desc->height,
+        .size        = desc->size,
         .format      = desc->format,
         .gen_mipmaps = desc->gen_mipmaps,
     };
@@ -158,8 +156,8 @@ void rc_texture_update(rc_texture tex, const void *data)
         GL_TEXTURE_2D,
         0,
         0, 0,
-        (GLsizei)e->width,
-        (GLsizei)e->height,
+        (GLsizei)e->size.x,
+        (GLsizei)e->size.y,
         base_fmt,
         GL_UNSIGNED_BYTE,
         data

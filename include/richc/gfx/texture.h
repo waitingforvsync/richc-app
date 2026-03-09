@@ -4,8 +4,7 @@
  * Typical usage
  * -------------
  *   rc_texture tex = rc_texture_make(&(rc_texture_desc) {
- *       .width       = (uint32_t)img.size.x,
- *       .height      = (uint32_t)img.size.y,
+ *       .size        = img.size,
  *       .format      = RC_TEXTURE_FORMAT_RGBA8,
  *       .usage       = RC_TEXTURE_USAGE_STATIC,
  *       .filter      = RC_TEXTURE_FILTER_LINEAR,
@@ -29,6 +28,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "richc/math/vec2i.h"
 
 /* ---- format / usage / sampler enums ---- */
 
@@ -57,8 +57,7 @@ typedef enum {
 /* ---- descriptor ---- */
 
 typedef struct {
-    uint32_t          width;
-    uint32_t          height;
+    rc_vec2i          size;    /* width (.x) and height (.y) in pixels */
     rc_texture_format format;
     rc_texture_usage  usage;
     rc_texture_wrap   wrap;         /* applies to both U and V */
