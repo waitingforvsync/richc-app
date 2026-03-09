@@ -44,6 +44,7 @@ add_library(richc_app STATIC
     src/gfx/pipeline_gl33.c
     src/gfx/texture_gl33.c
     src/image/image.c
+    src/image/image_pack.c
     include/richc/app/app.h
     include/richc/app/keys.h
     include/richc/gfx/gfx.h
@@ -52,6 +53,8 @@ add_library(richc_app STATIC
     include/richc/gfx/pipeline.h
     include/richc/gfx/texture.h
     include/richc/image/image.h
+    include/richc/image/array_image.h
+    include/richc/image/image_pack.h
 )
 
 target_include_directories(richc_app PUBLIC include)

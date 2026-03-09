@@ -238,6 +238,52 @@ if (r.error != RC_IMAGE_OK) { /* handle error */ }
 
 Image loading is part of `richc_app`; unused functions will be dead-stripped by the linker.
 
+### `include/richc/image/image_pack.h` — Atlas bin packing
+
+Packs multiple images into a single atlas texture using Maximal Rectangles with Best Short Side Fit (BSSF). Images are sorted by decreasing `max(width, height)` before placement for better packing density. No rotation is attempted.
+
+```c
+rc_image_pack_result rc_image_pack(rc_view_image images,
+                                    rc_vec2i      size,
+                                    int32_t       spacing,
+                                    rc_arena     *arena,
+                                    rc_arena      scratch);
+```
+
+| Parameter | Notes |
+|-----------|-------|
+| `images` | Input images; all must have `data.data != NULL` |
+| `size` | Atlas dimensions in pixels |
+| `spacing` | Minimum pixel gap maintained between packed images |
+| `arena` | Receives atlas pixel data and placements array on success |
+| `scratch` | Temporary working state — discarded regardless of outcome |
+
+Returns an `rc_image_pack_result`:
+
+```c
+typedef struct {
+    rc_image      image;       /* packed atlas, allocated from arena */
+    rc_span_box2i placements;  /* placements[i] is the rc_box2i for images[i] in the atlas */
+} rc_image_pack_result;
+```
+
+On failure (any image does not fit), returns a zero-initialised result and writes nothing to `arena`. The intended usage is to retry with successively larger atlas sizes:
+
+```c
+rc_arena arena   = rc_arena_make_default();
+rc_arena scratch = rc_arena_make_default();
+
+rc_image_pack_result r = {0};
+for (int32_t side = 256; !r.image.data.data; side *= 2) {
+    r = rc_image_pack(src_view, rc_vec2i_make(side, side), 1, &arena, scratch);
+}
+rc_arena_destroy(&scratch);
+
+/* r.placements.data[i] is the rc_box2i for src_images[i] in r.image. */
+```
+
+The atlas format is the widest format among the inputs (R8 → RGB8 → RGBA8); `rc_image_blit`'s expanding conversions handle up-casting automatically.
+
 ## Minimal example
 
 ```c
@@ -274,7 +320,7 @@ int main(void)
 
 | Submodule | Version | Role |
 |-----------|---------|------|
-| `extern/richc` | V0.3 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
+| `extern/richc` | V0.4 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
 | `extern/glfw`  | 3.4 | Window creation, input, GL context |
 | `extern/glad`  | glad2 | OpenGL 3.3 core loader (generated at configure time) |
 | `extern/miniz` | HEAD | zlib/DEFLATE for PNG decompression |
