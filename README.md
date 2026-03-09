@@ -196,8 +196,7 @@ Decodes a PNG into a flat pixel buffer allocated from `arena`. Supports 8-bit gr
 ```c
 typedef struct {
     rc_view_bytes   data;    /* non-owning view into arena memory */
-    int32_t         width;
-    int32_t         height;
+    rc_vec2i        size;
     int32_t         stride;  /* bytes per row */
     rc_pixel_format format;  /* RC_PIXEL_FORMAT_R8 / RGB8 / RGBA8 */
 } rc_image;
@@ -211,7 +210,7 @@ rc_arena scratch = rc_arena_make_default();
 rc_image_result r = rc_image_load_png("tex.png", &arena, scratch);
 rc_arena_destroy(&scratch);
 if (r.error != RC_IMAGE_OK) { /* handle error */ }
-/* r.image.data, .width, .height, .stride, .format */
+/* r.image.data, .size, .stride, .format */
 ```
 
 Image loading is part of `richc_app`; unused functions will be dead-stripped by the linker.
@@ -232,8 +231,7 @@ int main(void)
 {
     rc_app_init(&(rc_app_desc) {
         .title     = RC_STR("Hello"),
-        .width     = 1280,
-        .height    = 720,
+        .size      = { 1280, 720 },
         .resizable = true,
         .srgb      = true,
         .callbacks = { .on_render = on_render },
