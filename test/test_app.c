@@ -290,8 +290,8 @@ static void setup(App *app, const rc_image_result *owl)
 
     /* Upload owl texture and set the sampler uniform once. */
     app->owl_tex = rc_texture_make(&(rc_texture_desc) {
-        .width       = (uint32_t)owl->image.width,
-        .height      = (uint32_t)owl->image.height,
+        .width       = (uint32_t)owl->image.size.x,
+        .height      = (uint32_t)owl->image.size.y,
         .format      = RC_TEXTURE_FORMAT_RGBA8,
         .usage       = RC_TEXTURE_USAGE_STATIC,
         .filter      = RC_TEXTURE_FILTER_LINEAR,
@@ -381,8 +381,8 @@ int main(void)
         "test/owl.png", &image_arena, image_scratch);
     rc_arena_destroy(&image_scratch);
     RC_PANIC(owl.error == RC_IMAGE_OK);
-    RC_PANIC(owl.image.width  == 512);
-    RC_PANIC(owl.image.height == 512);
+    RC_PANIC(owl.image.size.x == 512);
+    RC_PANIC(owl.image.size.y == 512);
     RC_PANIC(owl.image.format == RC_PIXEL_FORMAT_RGBA8);
     RC_PANIC(owl.image.data.num == 512 * 512 * 4);
 

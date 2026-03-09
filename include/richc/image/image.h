@@ -27,7 +27,7 @@
  *   rc_image_result r = rc_image_load_png("tex.png", &arena, scratch);
  *   rc_arena_destroy(&scratch);
  *   if (r.error) { ... }
- *   // r.image.data, .width, .height, .stride, .format
+ *   // r.image.data, .size, .stride, .format
  */
 
 #ifndef RC_IMAGE_IMAGE_H_
@@ -36,6 +36,7 @@
 #include <stdint.h>
 #include "richc/bytes.h"
 #include "richc/arena.h"
+#include "richc/math/vec2i.h"
 
 /* ---- pixel format ---- */
 
@@ -53,9 +54,8 @@ typedef enum {
  */
 typedef struct {
     rc_view_bytes   data;    /* raw pixel bytes (not owned) */
-    int32_t         width;
-    int32_t         height;
-    int32_t         stride;  /* bytes per row (>= width * bytes_per_pixel) */
+    rc_vec2i        size;    /* width (x) and height (y) in pixels */
+    int32_t         stride;  /* bytes per row (>= size.x * bytes_per_pixel) */
     rc_pixel_format format;
 } rc_image;
 

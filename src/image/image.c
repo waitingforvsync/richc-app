@@ -261,8 +261,7 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
     return (rc_image_result) {
         .image = {
             .data   = {pixels, height * stride},
-            .width  = (int32_t)width,
-            .height = (int32_t)height,
+            .size   = { (int32_t)width, (int32_t)height },
             .stride = (int32_t)stride,
             .format = format,
         },

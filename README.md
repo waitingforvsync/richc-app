@@ -158,8 +158,8 @@ Typical usage with an `rc_image`:
 
 ```c
 rc_texture tex = rc_texture_make(&(rc_texture_desc) {
-    .width       = (uint32_t)img.width,
-    .height      = (uint32_t)img.height,
+    .width       = (uint32_t)img.size.x,
+    .height      = (uint32_t)img.size.y,
     .format      = (rc_texture_format)img.format,   /* cast valid: same values */
     .usage       = RC_TEXTURE_USAGE_STATIC,
     .filter      = RC_TEXTURE_FILTER_LINEAR,

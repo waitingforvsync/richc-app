@@ -4,8 +4,8 @@
  * Typical usage
  * -------------
  *   rc_texture tex = rc_texture_make(&(rc_texture_desc) {
- *       .width       = img.width,
- *       .height      = img.height,
+ *       .width       = (uint32_t)img.size.x,
+ *       .height      = (uint32_t)img.size.y,
  *       .format      = RC_TEXTURE_FORMAT_RGBA8,
  *       .usage       = RC_TEXTURE_USAGE_STATIC,
  *       .filter      = RC_TEXTURE_FILTER_LINEAR,
