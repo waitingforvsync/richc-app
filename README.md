@@ -183,26 +183,49 @@ rc_gfx_apply_bindings(&(rc_bindings) {
 ### `include/richc/image/image.h` — CPU-side image loading
 
 ```c
+/* construction */
+rc_image rc_image_make          (rc_vec2i size, rc_pixel_format format,
+                                  const uint8_t *fill_pixel, rc_arena *arena);
+rc_image rc_image_make_subimage (rc_image img, rc_box2i region);
+
+/* copy */
+bool     rc_image_blit          (rc_image dst, rc_vec2i dst_pos, rc_image src);
+
+/* PNG loading */
 rc_image_result rc_image_from_png(rc_view_bytes png_data,
                                    rc_arena *arena, rc_arena scratch);
 rc_image_result rc_image_load_png(const char *path,
                                    rc_arena *arena, rc_arena scratch);
 ```
 
-Decodes a PNG into a flat pixel buffer allocated from `arena`. Supports 8-bit greyscale (→ R8), RGB (→ RGB8), RGBA (→ RGBA8), greyscale+alpha (→ RGBA8), and indexed/palette (→ RGB8). 16-bit and interlaced images return `RC_IMAGE_ERROR_UNSUPPORTED`.
-
-`rc_image_result` contains an `rc_image` descriptor and an `rc_image_error` code:
+`rc_image` is a mutable non-owning descriptor for pixel data held in an arena:
 
 ```c
 typedef struct {
-    rc_view_bytes   data;    /* non-owning view into arena memory */
+    rc_span_bytes   data;    /* mutable non-owning span into arena memory */
     rc_vec2i        size;
-    int32_t         stride;  /* bytes per row */
+    uint32_t        stride;  /* bytes per row */
     rc_pixel_format format;  /* RC_PIXEL_FORMAT_R8 / RGB8 / RGBA8 */
 } rc_image;
 ```
 
-`scratch` holds the inflate buffer and raw file bytes — pass a fresh arena and destroy it after the call. Only the decoded pixels are written to `arena`.
+Row `y` starts at `data.data + y * stride`. Images are always stored top-row-first. `rc_pixel_format` values equal bytes-per-pixel, so `rc_pixel_format_bytes_per_pixel(fmt)` is a plain cast.
+
+**`rc_image_make`** allocates a zero-filled (or pattern-filled) image from `arena`. Pass `NULL` for `fill_pixel` to zero-fill; otherwise `fill_pixel` points to `bytes_per_pixel` bytes that are tiled across every pixel.
+
+**`rc_image_make_subimage`** returns a view into `img` sharing the same pixel data and stride. `region` is clamped to `img.size`; returns a zero-size image if the clamped region is empty.
+
+**`rc_image_blit`** copies `src` into `dst` at `dst_pos` (top-left corner in `dst` coordinates), clipped to `dst` bounds. Format-expanding conversions are applied automatically:
+
+| src → dst | Conversion |
+|-----------|------------|
+| R8 → RGB8 | `(r, r, r)` |
+| R8 → RGBA8 | `(r, r, r, 255)` |
+| RGB8 → RGBA8 | `(r, g, b, 255)` |
+
+Returns `false` (no copy performed) if `src.format > dst.format` (narrowing).
+
+**PNG loading** decodes into a flat pixel buffer allocated from `arena`. Supports 8-bit greyscale (→ R8), RGB (→ RGB8), RGBA (→ RGBA8), greyscale+alpha (→ RGBA8), and indexed/palette (→ RGB8). 16-bit and interlaced images return `RC_IMAGE_ERROR_UNSUPPORTED`. `scratch` holds the inflate buffer and raw file bytes — pass a fresh arena and destroy it after the call.
 
 ```c
 rc_arena arena   = rc_arena_make_default();
@@ -251,7 +274,7 @@ int main(void)
 
 | Submodule | Version | Role |
 |-----------|---------|------|
-| `extern/richc` | v0.1 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
+| `extern/richc` | V0.3 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
 | `extern/glfw`  | 3.4 | Window creation, input, GL context |
 | `extern/glad`  | glad2 | OpenGL 3.3 core loader (generated at configure time) |
 | `extern/miniz` | HEAD | zlib/DEFLATE for PNG decompression |
