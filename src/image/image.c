@@ -15,6 +15,7 @@
 #include "richc/debug.h"
 #include <miniz.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* ---- big-endian read ---- */
 
@@ -222,12 +223,13 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
 
     /* Allocate pixel buffer in the persistent arena */
     uint32_t stride = width * dst_bpp;
-    uint8_t *pixels = rc_arena_alloc_type(arena, uint8_t, height * stride);
+    rc_array_bytes pixels = rc_array_bytes_make(0, arena);
+    rc_array_bytes_resize(&pixels, height * stride, arena);
 
     /* Copy or expand from inflate_buf into pixels, skipping the filter byte */
     for (uint32_t y = 0; y < height; y++) {
         const uint8_t *src = inflate_buf + y * row_bytes + 1;
-        uint8_t       *dst = pixels      + y * stride;
+        uint8_t       *dst = pixels.data + y * stride;
 
         switch (color_type) {
             case 0:  /* greyscale → R8 */
@@ -260,9 +262,9 @@ rc_image_result rc_image_from_png(rc_view_bytes png, rc_arena *arena, rc_arena s
 
     return (rc_image_result) {
         .image = {
-            .data   = {pixels, height * stride},
+            .data   = pixels.span,
             .size   = { (int32_t)width, (int32_t)height },
-            .stride = (int32_t)stride,
+            .stride = stride,
             .format = format,
         },
         .error = RC_IMAGE_OK,
@@ -280,4 +282,112 @@ rc_image_result rc_image_load_png(const char *path, rc_arena *arena, rc_arena sc
 
     /* Decode; inflate buffer also goes into scratch, pixels go into arena */
     return rc_image_from_png(file.data, arena, scratch);
+}
+
+/* ---- rc_image_make ---- */
+
+rc_image rc_image_make(rc_vec2i size, rc_pixel_format format,
+                        const uint8_t *fill_pixel, rc_arena *arena)
+{
+    uint32_t bpp    = rc_pixel_format_bytes_per_pixel(format);
+    uint32_t stride = (uint32_t)size.x * bpp;
+    uint32_t total  = (uint32_t)size.y * stride;
+
+    rc_array_bytes arr = rc_array_bytes_make(0, arena);
+    rc_array_bytes_resize(&arr, total, arena);
+
+    if (!fill_pixel) {
+        memset(arr.data, 0, total);
+    } else {
+        for (uint32_t i = 0; i < total; i += bpp)
+            for (uint32_t b = 0; b < bpp; b++)
+                arr.data[i + b] = fill_pixel[b];
+    }
+
+    return (rc_image) {
+        .data   = arr.span,
+        .size   = size,
+        .stride = stride,
+        .format = format,
+    };
+}
+
+/* ---- rc_image_make_subimage ---- */
+
+rc_image rc_image_make_subimage(rc_image img, rc_box2i region)
+{
+    /* Clamp region to image bounds */
+    int32_t x0 = region.min.x < 0          ? 0          : region.min.x;
+    int32_t y0 = region.min.y < 0          ? 0          : region.min.y;
+    int32_t x1 = region.max.x > img.size.x ? img.size.x : region.max.x;
+    int32_t y1 = region.max.y > img.size.y ? img.size.y : region.max.y;
+
+    if (x0 >= x1 || y0 >= y1) {
+        return (rc_image) {
+            .data   = {.data = NULL, .num = 0},
+            .size   = { 0, 0 },
+            .stride = img.stride,
+            .format = img.format,
+        };
+    }
+
+    uint32_t bpp     = rc_pixel_format_bytes_per_pixel(img.format);
+    rc_vec2i subsize = { x1 - x0, y1 - y0 };
+    uint8_t *data    = img.data.data + (uint32_t)y0 * img.stride + (uint32_t)x0 * bpp;
+
+    return (rc_image) {
+        .data   = {.data = data, .num = (uint32_t)subsize.y * img.stride},
+        .size   = subsize,
+        .stride = img.stride,
+        .format = img.format,
+    };
+}
+
+/* ---- rc_image_blit ---- */
+
+bool rc_image_blit(rc_image dst, rc_vec2i dst_pos, rc_image src)
+{
+    if (src.format > dst.format)
+        return false;
+
+    /* Clip src region to dst bounds, adjusting src origin accordingly */
+    int32_t sx = 0,        sy = 0;
+    int32_t dx = dst_pos.x, dy = dst_pos.y;
+    int32_t  w = src.size.x, h = src.size.y;
+
+    if (dx < 0) { sx -= dx; w += dx; dx = 0; }
+    if (dy < 0) { sy -= dy; h += dy; dy = 0; }
+    if (dx + w > dst.size.x) w = dst.size.x - dx;
+    if (dy + h > dst.size.y) h = dst.size.y - dy;
+
+    if (w <= 0 || h <= 0)
+        return true;  /* fully clipped; not an error */
+
+    uint32_t src_bpp = rc_pixel_format_bytes_per_pixel(src.format);
+    uint32_t dst_bpp = rc_pixel_format_bytes_per_pixel(dst.format);
+
+    for (int32_t y = 0; y < h; y++) {
+        const uint8_t *sp = src.data.data + (uint32_t)(sy + y) * src.stride
+                                          + (uint32_t)sx * src_bpp;
+        uint8_t       *dp = dst.data.data + (uint32_t)(dy + y) * dst.stride
+                                          + (uint32_t)dx * dst_bpp;
+
+        if (src.format == dst.format) {
+            memcpy(dp, sp, (uint32_t)w * src_bpp);
+        } else {
+            for (int32_t x = 0; x < w; x++, sp += src_bpp, dp += dst_bpp) {
+                if (src.format == RC_PIXEL_FORMAT_R8 &&
+                    dst.format == RC_PIXEL_FORMAT_RGB8) {
+                    dp[0] = sp[0]; dp[1] = sp[0]; dp[2] = sp[0];
+                } else if (src.format == RC_PIXEL_FORMAT_R8 &&
+                           dst.format == RC_PIXEL_FORMAT_RGBA8) {
+                    dp[0] = sp[0]; dp[1] = sp[0]; dp[2] = sp[0]; dp[3] = 255;
+                } else if (src.format == RC_PIXEL_FORMAT_RGB8 &&
+                           dst.format == RC_PIXEL_FORMAT_RGBA8) {
+                    dp[0] = sp[0]; dp[1] = sp[1]; dp[2] = sp[2]; dp[3] = 255;
+                }
+            }
+        }
+    }
+    return true;
 }
