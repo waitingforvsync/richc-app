@@ -180,6 +180,49 @@ rc_gfx_apply_bindings(&(rc_bindings) {
 });
 ```
 
+### `include/richc/gfx/render_target.h` — Off-screen render targets
+
+```c
+rc_render_target rc_render_target_make   (const rc_render_target_desc *desc);
+void             rc_render_target_destroy(rc_render_target rt);
+rc_texture       rc_render_target_color  (rc_render_target rt, uint32_t index);
+void             rc_gfx_begin_render_target(rc_render_target rt);
+void             rc_gfx_end_render_target  (void);
+```
+
+A render target wraps an OpenGL framebuffer with up to `RC_MAX_COLOR_ATTACHMENTS` (4) colour textures and an optional depth renderbuffer. Colour textures are first-class `rc_texture` handles and can be bound in `rc_bindings.textures[]` for a subsequent pass.
+
+`rc_render_target_desc` fields:
+
+| Field | Notes |
+|-------|-------|
+| `size` | `rc_vec2i` — fixed at creation time; recreate on window resize |
+| `color[]` | Array of `rc_color_attachment_desc` terminated by `format == 0`; at least one required |
+| `depth` | `bool` — allocate a depth renderbuffer |
+
+`rc_gfx_begin_render_target` binds the FBO and sets the viewport to the RT size. `rc_gfx_end_render_target` restores FBO 0 and the viewport to `rc_app_size()`. RC_PANICs on nested or unmatched begin/end.
+
+```c
+rc_render_target rt = rc_render_target_make(&(rc_render_target_desc) {
+    .size  = rc_app_size(),
+    .color = {{ .format = RC_TEXTURE_FORMAT_RGBA8,
+                .filter = RC_TEXTURE_FILTER_LINEAR,
+                .wrap   = RC_TEXTURE_WRAP_CLAMP }},
+    .depth = true,
+});
+
+rc_gfx_begin_render_target(rt);
+    rc_gfx_clear(...);
+    /* draw calls ... */
+rc_gfx_end_render_target();
+
+/* bind the colour result for a subsequent pass */
+rc_gfx_apply_bindings(&(rc_bindings) {
+    .vertex_buffers = { quad_buf },
+    .textures       = { rc_render_target_color(rt, 0) },
+});
+```
+
 ### `include/richc/image/image.h` — CPU-side image loading
 
 ```c

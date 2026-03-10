@@ -33,6 +33,7 @@ The compile-time backend is selected by which `.c` file is compiled.
 - `src/gfx/buffer_gl33.c` — GL 3.3 buffer upload/update
 - `src/gfx/pipeline_gl33.c` — GL 3.3 pipeline, bindings, draw
 - `src/gfx/texture_gl33.c` — GL 3.3 texture upload/sampler/destroy
+- `src/gfx/render_target_gl33.c` — GL 3.3 FBO + colour textures + depth renderbuffer
 
 Public headers must never include GLFW or glad headers.
 
@@ -104,6 +105,9 @@ include/richc/gfx/
                                     rc_pipeline_make/destroy, rc_gfx_apply_pipeline/bindings/draw
   texture.h                       — rc_texture, rc_texture_desc, rc_texture_format/usage/wrap/filter,
                                     rc_texture_make/update/destroy
+  render_target.h                 — rc_render_target, rc_render_target_desc, rc_color_attachment_desc,
+                                    rc_render_target_make/destroy/color,
+                                    rc_gfx_begin/end_render_target
 src/image/
   image.c                         — PNG decoder (miniz inflate + filter reconstruction);
                                     rc_image_make/make_subimage/blit
@@ -116,7 +120,9 @@ src/gfx/
   buffer_gl33.c                   — GL 3.3 implementation of buffer.h
   pipeline_gl33.c                 — GL 3.3 implementation of pipeline.h (global VAO, pipeline table)
   texture_gl33.c                  — GL 3.3 implementation of texture.h (flat table, swap-remove)
-  texture_gl33_internal.h         — internal helper rc_texture_gl_() used by pipeline_gl33.c
+  texture_gl33_internal.h         — internal helper rc_texture_gl_() used by pipeline_gl33.c and render_target_gl33.c
+  render_target_gl33.c            — GL 3.3 implementation of render_target.h (flat table, swap-remove)
 test/
   test_app.c                      — pentagram + owl texture quad + packed atlas quad (24 solid-colour images)
+                                    + two-pass separable Gaussian blur glass rect via render targets
 ```
