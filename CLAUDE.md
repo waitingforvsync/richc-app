@@ -98,10 +98,13 @@ include/richc/image/
   array_image.h                   — rc_view_image, rc_span_image, rc_array_image (template instantiation)
   image_pack.h                    — rc_image_pack_result, rc_image_pack (Maximal Rectangles / BSSF atlas packer)
 include/richc/gfx/
-  gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth
+  gfx.h                           — rc_color, rc_gfx_viewport/clear/clear_depth/set_scissor/clear_scissor
   shader.h                        — rc_shader, rc_uniform_loc, rc_shader_make/destroy/bind/loc/set_*
   buffer.h                        — rc_buffer, rc_buffer_make/upload/update/destroy
   pipeline.h                      — rc_pipeline, rc_bindings, rc_attrib_format, rc_index_type,
+                                    rc_compare_func, rc_depth_state,
+                                    rc_blend_factor, rc_blend_op, rc_blend_state,
+                                    rc_cull_face, rc_winding, rc_cull_state,
                                     rc_pipeline_make/destroy, rc_gfx_apply_pipeline/bindings/draw
   texture.h                       — rc_texture, rc_texture_desc, rc_texture_format/usage/wrap/filter,
                                     rc_texture_make/update/destroy

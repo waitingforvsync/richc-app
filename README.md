@@ -49,12 +49,16 @@ Available callbacks: `on_key_down`, `on_key_up`, `on_key_char`, `on_mouse_down`,
 ### `include/richc/gfx/gfx.h` — Frame operations
 
 ```c
-void rc_gfx_viewport   (rc_vec2i size);
-void rc_gfx_clear      (rc_color color);
-void rc_gfx_clear_depth(void);
+void rc_gfx_viewport     (rc_vec2i size);
+void rc_gfx_clear        (rc_color color);
+void rc_gfx_clear_depth  (void);
+void rc_gfx_set_scissor  (rc_box2i rect);   /* enable scissor test */
+void rc_gfx_clear_scissor(void);            /* disable scissor test */
 ```
 
 Colors are linear RGBA floats; when sRGB is enabled the GPU encodes them on write.
+
+Scissor coordinates follow the GL convention: `rect.min` is the bottom-left corner, Y increases upward.
 
 ### `include/richc/gfx/shader.h` — GLSL shaders
 
@@ -86,7 +90,7 @@ void      rc_buffer_destroy(rc_buffer buf);
 
 ### `include/richc/gfx/pipeline.h` — Pipeline, bindings, and draw calls
 
-A pipeline bakes together a shader, vertex buffer layouts, attribute formats, index type, and blend state. Buffers are supplied separately at draw time via `rc_bindings`, so the same pipeline can draw different meshes.
+A pipeline bakes together a shader, vertex buffer layouts, attribute formats, index type, depth, blend, and cull state. Buffers are supplied separately at draw time via `rc_bindings`, so the same pipeline can draw different meshes.
 
 ```c
 rc_pipeline rc_pipeline_make   (const rc_pipeline_desc *desc);
@@ -96,7 +100,7 @@ void        rc_gfx_apply_bindings(const rc_bindings *bind);
 void        rc_gfx_draw(uint32_t first, uint32_t count, uint32_t instances);
 ```
 
-`rc_pipeline_desc` combines the shader with up to four buffer slot layouts and up to sixteen attribute descriptors. The attrib list is terminated by an entry with `format == 0`:
+`rc_pipeline_desc` combines the shader with up to four buffer slot layouts and up to sixteen attribute descriptors. The attrib list is terminated by an entry with `format == 0`. All state fields zero-initialise to sensible defaults:
 
 ```c
 rc_pipeline pip = rc_pipeline_make(&(rc_pipeline_desc) {
@@ -110,14 +114,22 @@ rc_pipeline pip = rc_pipeline_make(&(rc_pipeline_desc) {
         { .location = 1, .buffer_slot = 1, .format = RC_ATTRIB_FORMAT_FLOAT2, .offset = offsetof(MyInst, pos) },
     },
     .index_type = RC_INDEX_TYPE_NONE,
-    .blend      = { .enabled = true },
+    .depth = { .enabled = true, .compare = RC_COMPARE_LESS_EQUAL, .write_enabled = true },
+    .blend = { .enabled = true },   /* defaults to SRC_ALPHA / ONE_MINUS_SRC_ALPHA / ADD */
+    .cull  = { .face = RC_CULL_BACK },
 });
 ```
 
 `rc_attrib_format` tokens: `RC_ATTRIB_FORMAT_FLOAT`, `FLOAT2`, `FLOAT3`, `FLOAT4`.
 `rc_index_type` tokens: `RC_INDEX_TYPE_NONE`, `RC_INDEX_TYPE_UINT16`, `RC_INDEX_TYPE_UINT32`.
 
-Each frame, apply the pipeline first (binds shader and blend state), supply buffer and texture handles via bindings, then draw. Use `instances == 1` for non-instanced draws:
+**Depth state** (`rc_depth_state`): `enabled`, `compare` (`rc_compare_func`: `DEFAULT`/`NEVER`/`LESS`/`EQUAL`/`LESS_EQUAL`/`GREATER`/`NOT_EQUAL`/`GREATER_EQUAL`/`ALWAYS`; 0 = `LESS_EQUAL`), `write_enabled`.
+
+**Blend state** (`rc_blend_state`): `enabled`, `src_factor_rgb`, `dst_factor_rgb`, `src_factor_alpha`, `dst_factor_alpha` (`rc_blend_factor`; 0 = `SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA`), `op_rgb`, `op_alpha` (`rc_blend_op`: `DEFAULT`/`ADD`/`SUBTRACT`/`REVERSE_SUBTRACT`/`MIN`/`MAX`; 0 = `ADD`). `{ .enabled = true }` gives standard alpha blending on all channels.
+
+**Cull state** (`rc_cull_state`): `face` (`rc_cull_face`: `NONE`/`FRONT`/`BACK`; 0 = no culling), `front_face` (`rc_winding`: `CCW`/`CW`; 0 = CCW).
+
+Each frame, apply the pipeline first, supply buffer and texture handles via bindings, then draw. Use `instances == 1` for non-instanced draws:
 
 ```c
 rc_gfx_apply_pipeline(pip);
