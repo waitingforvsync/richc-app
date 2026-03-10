@@ -1,8 +1,9 @@
 /*
- * test_app.c - pentagram + textured owl quad.
+ * test_app.c - pentagram + textured owl quad + font SDF atlas.
  *
  * Left side: owl.png rendered as a filtered 128×128-NDC-unit square.
- * Right side: the animated pentagram (5 anti-aliased instanced lines).
+ * Centre: the animated pentagram (5 anti-aliased instanced lines).
+ * Right side: Roboto-Regular SDF atlas (greyscale via R8 texture swizzle).
  *
  * No GL calls appear here; everything goes through the rc_gfx / rc_shader /
  * rc_buffer / rc_pipeline / rc_texture / rc_app APIs.
@@ -20,7 +21,7 @@
 #include "richc/math/math.h"
 #include "richc/math/vec2f.h"
 #include "richc/image/image.h"
-#include "richc/image/image_pack.h"
+#include "richc/font/font.h"
 #include "richc/str.h"
 #include "richc/arena.h"
 #include "richc/debug.h"
@@ -441,63 +442,26 @@ static void setup(App *app, const rc_image_result *owl)
     rc_shader_bind(app->tex_shader);
     rc_shader_set_texture(app->u_tex, 0);
 
-    /* --- packed atlas --- */
+    /* --- font SDF atlas --- */
 
-    /* 24 source images: varied sizes and solid RGB8 fill colours. */
-    static const struct { rc_vec2i size; uint8_t r, g, b; } k_items[24] = {
-        { {80, 40},  220,  50,  50 },  /* red          */
-        { {50, 60},   50, 200,  50 },  /* green        */
-        { {70, 30},   50,  50, 220 },  /* blue         */
-        { {40, 80},  220, 180,  50 },  /* yellow       */
-        { {60, 50},  180,  50, 220 },  /* purple       */
-        { {30, 30},   50, 200, 200 },  /* cyan         */
-        { {90, 20},  220, 120,  50 },  /* orange       */
-        { {25, 70},  180, 220,  50 },  /* lime         */
-        { {55, 45},   50, 120, 220 },  /* sky blue     */
-        { {45, 55},  220,  50, 140 },  /* pink         */
-        { {35, 65},  140, 200, 180 },  /* teal         */
-        { {65, 35},  200, 140,  80 },  /* tan          */
-        { {20, 90},  100,  80, 200 },  /* indigo       */
-        { {75, 25},  200,  80, 100 },  /* rose         */
-        { {50, 50},  100, 200, 100 },  /* mint         */
-        { {40, 40},  220, 200, 160 },  /* cream        */
-        { {60, 20},  160,  60, 100 },  /* maroon       */
-        { {20, 60},   80, 160,  80 },  /* forest       */
-        { {30, 50},  160, 140, 200 },  /* lavender     */
-        { {50, 30},  200, 160,  60 },  /* gold         */
-        { {35, 20},  240, 100, 180 },  /* hot pink     */
-        { {20, 35},   80, 200, 240 },  /* aqua         */
-        { {45, 25},  120,  80,  40 },  /* brown        */
-        { {25, 45},  180, 180, 180 },  /* silver       */
-    };
+    {
+        rc_arena font_arena   = rc_arena_make_default();
+        rc_arena font_scratch = rc_arena_make_default();
+        rc_font_atlas_result font = rc_font_atlas_make(
+            "test/Roboto-Regular.ttf", 48, 8, &font_arena, font_scratch);
+        rc_arena_destroy(&font_scratch);
+        RC_PANIC(font.error == RC_FONT_OK);
 
-    rc_arena pack_arena   = rc_arena_make_default();
-    rc_arena pack_scratch = rc_arena_make_default();
-
-    rc_image src_images[24];
-    for (int i = 0; i < 24; i++) {
-        uint8_t px[3] = {k_items[i].r, k_items[i].g, k_items[i].b};
-        src_images[i] = rc_image_make(k_items[i].size,
-                                       RC_PIXEL_FORMAT_RGB8, px, &pack_arena);
+        app->atlas_tex = rc_texture_make(&(rc_texture_desc) {
+            .size   = font.atlas.atlas.size,
+            .format = RC_TEXTURE_FORMAT_R8,
+            .usage  = RC_TEXTURE_USAGE_STATIC,
+            .filter = RC_TEXTURE_FILTER_LINEAR,
+            .wrap   = RC_TEXTURE_WRAP_CLAMP,
+            .data   = font.atlas.atlas.data.data,
+        });
+        rc_arena_destroy(&font_arena);
     }
-
-    rc_view_image src_view = {src_images, 24};
-    rc_image_pack_result pack = rc_image_pack(
-        src_view, rc_vec2i_make(256, 256), 1, &pack_arena, pack_scratch);
-    rc_arena_destroy(&pack_scratch);
-    RC_PANIC(pack.image.data.data != NULL);
-
-    app->atlas_tex = rc_texture_make(&(rc_texture_desc) {
-        .size   = pack.image.size,
-        .format = (rc_texture_format)pack.image.format,
-        .usage  = RC_TEXTURE_USAGE_STATIC,
-        .filter = RC_TEXTURE_FILTER_NEAREST,
-        .wrap   = RC_TEXTURE_WRAP_CLAMP,
-        .data   = pack.image.data.data,
-    });
-    /* Atlas pixels were the last allocation; reclaim them now the GPU has a copy. */
-    rc_arena_free(&pack_arena, pack.image.data.data, pack.image.data.num);
-    rc_arena_destroy(&pack_arena);
 
     app->atlas_quad_buf = rc_buffer_make(RC_BUFFER_STATIC);
     rc_buffer_upload(app->atlas_quad_buf,

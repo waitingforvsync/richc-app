@@ -11,7 +11,7 @@ never appear in the public API.
 ## Dependencies
 | Submodule | Tag | Role |
 |-----------|-----|------|
-| `extern/richc` | V0.5 | Core types (rc_str, rc_vec2i, RC_ASSERT, …) |
+| `extern/richc` | V0.6 | Core types (rc_str, rc_vec2i, RC_ASSERT, …) + rc_solve_quadratic/cubic |
 | `extern/glfw`  | 3.4  | Window creation, input events, GL context |
 | `extern/glad`  | HEAD (glad2) | OpenGL 3.3 core loader (generated at configure time via Python) |
 | `extern/miniz` | HEAD | zlib/DEFLATE implementation (PNG decompression) |
@@ -82,7 +82,7 @@ Configure and build with VS 2022 (MSVC):
 CMakeLists.txt                    — build system
 CLAUDE.md                         — this file
 extern/
-  richc/                          — richc V0.4 submodule
+  richc/                          — richc V0.6 submodule
   glfw/                           — GLFW 3.4 submodule
   glad/                           — glad2 submodule (Python-based GL loader)
 include/richc/app/
@@ -90,6 +90,9 @@ include/richc/app/
   app.h                           — rc_app_callbacks, rc_app_desc,
                                     rc_app_init/destroy/poll/is_running/size/
                                     request_update/request_render/swap_buffers
+include/richc/font/
+  font.h                          — rc_font_glyph_metrics, rc_font_atlas, rc_font_atlas_result,
+                                    rc_font_error, rc_font_atlas_make
 include/richc/image/
   image.h                         — rc_image (data: rc_span_bytes, mutable), rc_pixel_format,
                                     rc_pixel_format_bytes_per_pixel,
@@ -111,6 +114,10 @@ include/richc/gfx/
   render_target.h                 — rc_render_target, rc_render_target_desc, rc_color_attachment_desc,
                                     rc_render_target_make/destroy/color,
                                     rc_gfx_begin/end_render_target
+src/font/
+  font.c                          — TTF loader (big-endian table parsing, cmap format-4 lookup,
+                                    glyf simple-glyph outline extraction, quadratic Bézier SDF
+                                    rasterisation, rc_image_pack atlas assembly)
 src/image/
   image.c                         — PNG decoder (miniz inflate + filter reconstruction);
                                     rc_image_make/make_subimage/blit
@@ -126,6 +133,7 @@ src/gfx/
   texture_gl33_internal.h         — internal helper rc_texture_gl_() used by pipeline_gl33.c and render_target_gl33.c
   render_target_gl33.c            — GL 3.3 implementation of render_target.h (flat table, swap-remove)
 test/
-  test_app.c                      — pentagram + owl texture quad + packed atlas quad (24 solid-colour images)
-                                    + two-pass separable Gaussian blur glass rect via render targets
+  test_app.c                      — pentagram + owl texture quad + Roboto-Regular SDF font atlas
+                                    (R8 texture with swizzle for greyscale rendering)
+  Roboto-Regular.ttf              — test font (Apache 2.0)
 ```

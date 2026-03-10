@@ -129,6 +129,13 @@ rc_texture rc_texture_make(const rc_texture_desc *desc)
     if (desc->gen_mipmaps && desc->data != NULL)
         glGenerateMipmap(GL_TEXTURE_2D);
 
+    /* R8 textures sample as (r,0,0,1) by default; swizzle G and B to RED so
+     * the existing RGBA shader treats them as greyscale (r,r,r,1). */
+    if (desc->format == RC_TEXTURE_FORMAT_R8) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_RED);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+    }
+
     uint32_t id = tex_next_id_++;
     tex_table_[tex_count_] = (tex_entry_) {
         .id          = id,

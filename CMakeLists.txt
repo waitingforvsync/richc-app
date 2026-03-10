@@ -46,6 +46,7 @@ add_library(richc_app STATIC
     src/gfx/render_target_gl33.c
     src/image/image.c
     src/image/image_pack.c
+    src/font/font.c
     include/richc/app/app.h
     include/richc/app/keys.h
     include/richc/gfx/gfx.h
@@ -57,6 +58,7 @@ add_library(richc_app STATIC
     include/richc/image/image.h
     include/richc/image/array_image.h
     include/richc/image/image_pack.h
+    include/richc/font/font.h
 )
 
 target_include_directories(richc_app PUBLIC include)
