@@ -11,7 +11,7 @@ never appear in the public API.
 ## Dependencies
 | Submodule | Tag | Role |
 |-----------|-----|------|
-| `extern/richc` | V0.4 | Core types (rc_str, rc_vec2i, RC_ASSERT, …) |
+| `extern/richc` | V0.5 | Core types (rc_str, rc_vec2i, RC_ASSERT, …) |
 | `extern/glfw`  | 3.4  | Window creation, input events, GL context |
 | `extern/glad`  | HEAD (glad2) | OpenGL 3.3 core loader (generated at configure time via Python) |
 | `extern/miniz` | HEAD | zlib/DEFLATE implementation (PNG decompression) |

@@ -2,7 +2,8 @@
  * image_pack.c - Maximal Rectangles bin packing, Best Short Side Fit.
  *
  * All temporary state (free-rect list, working placements) lives in scratch.
- * On success the atlas pixels and final placements are written to arena.
+ * On success the final placements and then the atlas pixels are written to arena
+ * (in that order), so the atlas sits at the top and can be freed after upload.
  * On failure nothing is written to arena.
  */
 
@@ -148,13 +149,15 @@ rc_image_pack_result rc_image_pack(rc_view_image images,
         split_free_rects_(&free, best_place, spacing, &scratch);
     }
 
-    /* Success: write atlas and placements to arena. */
+    /* Success: write placements then atlas to arena.
+     * Placements are allocated first so the atlas sits at the top of the arena
+     * and can be freed (rc_arena_pop) after uploading to a GPU texture. */
+    rc_array_box2i result = {0};
+    rc_array_box2i_push_n(&result, place.data, images.num, arena);
+
     rc_image atlas = rc_image_make(size, fmt, NULL, arena);
     for (uint32_t i = 0; i < images.num; i++)
         rc_image_blit(atlas, place.data[i].min, images.data[i]);
-
-    rc_array_box2i result = {0};
-    rc_array_box2i_push_n(&result, place.data, images.num, arena);
 
     return (rc_image_pack_result) {
         .image      = atlas,

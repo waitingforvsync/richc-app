@@ -495,7 +495,9 @@ static void setup(App *app, const rc_image_result *owl)
         .wrap   = RC_TEXTURE_WRAP_CLAMP,
         .data   = pack.image.data.data,
     });
-    rc_arena_destroy(&pack_arena);   /* GPU has its own copy now */
+    /* Atlas pixels were the last allocation; reclaim them now the GPU has a copy. */
+    rc_arena_free(&pack_arena, pack.image.data.data, pack.image.data.num);
+    rc_arena_destroy(&pack_arena);
 
     app->atlas_quad_buf = rc_buffer_make(RC_BUFFER_STATIC);
     rc_buffer_upload(app->atlas_quad_buf,

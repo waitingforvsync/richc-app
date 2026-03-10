@@ -363,7 +363,7 @@ int main(void)
 
 | Submodule | Version | Role |
 |-----------|---------|------|
-| `extern/richc` | V0.4 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
+| `extern/richc` | V0.5 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
 | `extern/glfw`  | 3.4 | Window creation, input, GL context |
 | `extern/glad`  | glad2 | OpenGL 3.3 core loader (generated at configure time) |
 | `extern/miniz` | HEAD | zlib/DEFLATE for PNG decompression |
