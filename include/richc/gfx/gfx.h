@@ -24,6 +24,7 @@
 #define RC_APP_GFX_H_
 
 #include <stdint.h>
+#include "richc/math/box2i.h"
 #include "richc/math/vec2i.h"
 
 /* ---- colour type ---- */
@@ -62,5 +63,18 @@ void rc_gfx_clear(rc_color color);
 
 /* Clear the depth buffer. */
 void rc_gfx_clear_depth(void);
+
+/* ---- scissor ---- */
+
+/*
+ * Enable the scissor test, restricting all rendering to rect.
+ * Coordinates follow the GL convention: rect.min is the bottom-left corner,
+ * Y increases upward.  Typically rect.min.y = window_height - rect.max.y
+ * if working in top-left screen space.
+ */
+void rc_gfx_set_scissor(rc_box2i rect);
+
+/* Disable the scissor test. */
+void rc_gfx_clear_scissor(void);
 
 #endif /* RC_APP_GFX_H_ */

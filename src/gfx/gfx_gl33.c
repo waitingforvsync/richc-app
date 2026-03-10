@@ -24,3 +24,16 @@ void rc_gfx_clear_depth(void)
     glClear(GL_DEPTH_BUFFER_BIT);
 }
 
+void rc_gfx_set_scissor(rc_box2i rect)
+{
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(rect.min.x, rect.min.y,
+              (GLsizei)(rect.max.x - rect.min.x),
+              (GLsizei)(rect.max.y - rect.min.y));
+}
+
+void rc_gfx_clear_scissor(void)
+{
+    glDisable(GL_SCISSOR_TEST);
+}
+

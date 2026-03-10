@@ -51,6 +51,55 @@ static GLenum index_type_gl_(rc_index_type t)
     }
 }
 
+static GLenum compare_func_gl_(rc_compare_func f)
+{
+    switch (f) {
+        case RC_COMPARE_DEFAULT:         return GL_LEQUAL;
+        case RC_COMPARE_NEVER:           return GL_NEVER;
+        case RC_COMPARE_LESS:            return GL_LESS;
+        case RC_COMPARE_EQUAL:           return GL_EQUAL;
+        case RC_COMPARE_LESS_EQUAL:      return GL_LEQUAL;
+        case RC_COMPARE_GREATER:         return GL_GREATER;
+        case RC_COMPARE_NOT_EQUAL:       return GL_NOTEQUAL;
+        case RC_COMPARE_GREATER_EQUAL:   return GL_GEQUAL;
+        case RC_COMPARE_ALWAYS:          return GL_ALWAYS;
+        default: RC_PANIC(0); return 0;
+    }
+}
+
+/* Resolve blend factor; default_ is used when f == 0. */
+static GLenum blend_factor_gl_(rc_blend_factor f, GLenum default_)
+{
+    switch (f) {
+        case RC_BLEND_FACTOR_DEFAULT:               return default_;
+        case RC_BLEND_FACTOR_ZERO:                  return GL_ZERO;
+        case RC_BLEND_FACTOR_ONE:                   return GL_ONE;
+        case RC_BLEND_FACTOR_SRC_COLOR:             return GL_SRC_COLOR;
+        case RC_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:   return GL_ONE_MINUS_SRC_COLOR;
+        case RC_BLEND_FACTOR_SRC_ALPHA:             return GL_SRC_ALPHA;
+        case RC_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA:   return GL_ONE_MINUS_SRC_ALPHA;
+        case RC_BLEND_FACTOR_DST_COLOR:             return GL_DST_COLOR;
+        case RC_BLEND_FACTOR_ONE_MINUS_DST_COLOR:   return GL_ONE_MINUS_DST_COLOR;
+        case RC_BLEND_FACTOR_DST_ALPHA:             return GL_DST_ALPHA;
+        case RC_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:   return GL_ONE_MINUS_DST_ALPHA;
+        case RC_BLEND_FACTOR_SRC_ALPHA_SATURATE:    return GL_SRC_ALPHA_SATURATE;
+        default: RC_PANIC(0); return 0;
+    }
+}
+
+static GLenum blend_op_gl_(rc_blend_op op)
+{
+    switch (op) {
+        case RC_BLEND_OP_DEFAULT:        return GL_FUNC_ADD;
+        case RC_BLEND_OP_ADD:            return GL_FUNC_ADD;
+        case RC_BLEND_OP_SUBTRACT:       return GL_FUNC_SUBTRACT;
+        case RC_BLEND_OP_REVERSE_SUBTRACT: return GL_FUNC_REVERSE_SUBTRACT;
+        case RC_BLEND_OP_MIN:            return GL_MIN;
+        case RC_BLEND_OP_MAX:            return GL_MAX;
+        default: RC_PANIC(0); return 0;
+    }
+}
+
 /* ---- pipeline table ---- */
 
 #define MAX_PIPELINES_ 64u
@@ -109,13 +158,40 @@ void rc_gfx_apply_pipeline(rc_pipeline pip)
     /* Shader */
     glUseProgram(e->desc.shader.id);
 
+    /* Depth state */
+    const rc_depth_state *d = &e->desc.depth;
+    if (d->enabled) {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(compare_func_gl_(d->compare));
+        glDepthMask(d->write_enabled ? GL_TRUE : GL_FALSE);
+    } else {
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+    }
+
     /* Blend state */
-    if (e->desc.blend.enabled) {
+    const rc_blend_state *b = &e->desc.blend;
+    if (b->enabled) {
         glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GLenum src_rgb = blend_factor_gl_(b->src_factor_rgb,   GL_SRC_ALPHA);
+        GLenum dst_rgb = blend_factor_gl_(b->dst_factor_rgb,   GL_ONE_MINUS_SRC_ALPHA);
+        GLenum src_a   = blend_factor_gl_(b->src_factor_alpha, src_rgb);
+        GLenum dst_a   = blend_factor_gl_(b->dst_factor_alpha, dst_rgb);
+        glBlendFuncSeparate(src_rgb, dst_rgb, src_a, dst_a);
+        glBlendEquationSeparate(blend_op_gl_(b->op_rgb), blend_op_gl_(b->op_alpha));
     } else {
         glDisable(GL_BLEND);
     }
+
+    /* Cull state */
+    const rc_cull_state *c = &e->desc.cull;
+    if (c->face != RC_CULL_NONE) {
+        glEnable(GL_CULL_FACE);
+        glCullFace(c->face == RC_CULL_FRONT ? GL_FRONT : GL_BACK);
+    } else {
+        glDisable(GL_CULL_FACE);
+    }
+    glFrontFace(c->front_face == RC_WINDING_CW ? GL_CW : GL_CCW);
 }
 
 void rc_gfx_apply_bindings(const rc_bindings *bind)

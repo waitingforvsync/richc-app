@@ -152,7 +152,7 @@ static const char k_blur_frag_src[] =
     "        col += texture(u_tex, v_uv + float(i) * step) * w[i];\n"
     "        col += texture(u_tex, v_uv - float(i) * step) * w[i];\n"
     "    }\n"
-    "    frag_color = col * vec4(0.85, 0.85, 0.85, 1.0);\n"
+    "    frag_color = vec4(mix(col.rgb, vec3(0.625), 0.25), 1.0);\n"
     "}\n";
 
 /* ======================================================================== */
