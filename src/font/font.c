@@ -735,7 +735,7 @@ rc_font_atlas_result rc_font_atlas_make(const char *path,
     /* Auto-size: sum glyph areas with half the packing spacing per edge,
      * take the square root, round up to the next power-of-two square.
      * If packing fails, alternate doubling width then height until it fits. */
-    static const int32_t pack_spacing = 4;
+    static const int32_t pack_spacing = 2;
     uint64_t total_area = 0;
     for (int k = 0; k < n_packed; k++) {
         uint64_t w = (uint64_t)(packed_images[k].size.x + pack_spacing);

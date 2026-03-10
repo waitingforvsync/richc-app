@@ -339,6 +339,64 @@ rc_arena_destroy(&scratch);
 
 The atlas format is the widest format among the inputs (R8 → RGB8 → RGBA8); `rc_image_blit`'s expanding conversions handle up-casting automatically.
 
+### `include/richc/font/font.h` — SDF font atlas
+
+Loads a TrueType (.ttf) font and rasterises ASCII 33–126 as signed-distance-field glyphs packed into a single R8 atlas texture.
+
+```c
+rc_font_atlas_result rc_font_atlas_make(const char *path,
+                                         int32_t     pixel_height,
+                                         int32_t     sdf_spread,
+                                         rc_arena   *arena,
+                                         rc_arena    scratch);
+```
+
+| Parameter | Notes |
+|-----------|-------|
+| `path` | Path to the `.ttf` file |
+| `pixel_height` | Desired glyph height in pixels (0 → default 32) |
+| `sdf_spread` | SDF gradient radius in atlas pixels — controls how many pixels of smooth gradient extend beyond the glyph edge (0 → default 4) |
+| `arena` | Receives atlas image and glyph metrics |
+| `scratch` | Temporary working memory — destroy after the call |
+
+`rc_font_atlas_result` contains an `rc_font_atlas` and an `rc_font_error` (`RC_FONT_OK`, `RC_FONT_ERROR_NOT_FOUND`, `RC_FONT_ERROR_INVALID`).
+
+`rc_font_atlas` fields:
+
+| Field | Notes |
+|-------|-------|
+| `atlas` | `rc_image` (R8 format) in caller's arena |
+| `glyphs[RC_FONT_GLYPH_COUNT]` | Per-glyph metrics, indexed by `codepoint - RC_FONT_FIRST_GLYPH` (33) |
+| `ascender` / `descender` | Pixels above / below the baseline |
+| `sdf_spread` | Actual SDF spread used |
+| `pixel_height` | Requested pixel height |
+
+`rc_glyph_metrics` fields: `atlas_rect` (`rc_box2i` in atlas, including SDF padding), `offset_x`/`offset_y` (pixels from cursor/baseline to quad corner), `advance` (horizontal cursor advance in pixels).
+
+**SDF encoding:** `value = clamp(128 + 127 * signed_dist / spread, 0, 255)`. Value 128 (≈ 0.502 normalised) is on the contour; 255 is well inside; 0 is well outside.
+
+**Rendering a glyph** at `(cursor_x, baseline_y)` (screen Y-down):
+
+```c
+quad_x = cursor_x  + g.offset_x;
+quad_y = baseline_y - g.offset_y;   /* offset_y positive = above baseline */
+quad_w = rc_box2i_size(g.atlas_rect).x;
+quad_h = rc_box2i_size(g.atlas_rect).y;
+/* atlas UV from g.atlas_rect */
+cursor_x += g.advance;
+```
+
+**SDF antialiasing** (geometry-invariant, using UV derivatives):
+
+```glsl
+float d        = texture(u_tex, v_uv).r;
+float atlas_px = 0.5 * (length(dFdx(v_uv)) * atlas_w + length(dFdy(v_uv)) * atlas_h);
+float edge     = atlas_px * (127.0 / (sdf_spread * 255.0)) * 0.5;
+float alpha    = d >= 0.5 ? 1.0 : smoothstep(0.5 - edge, 0.5, d);
+```
+
+Using UV-space derivatives rather than `fwidth(d)` gives a constant atlas-texels-per-screen-pixel measure that is geometry-invariant, producing uniform stroke widths across straight edges, curves, and corners.
+
 ## Minimal example
 
 ```c
@@ -375,7 +433,7 @@ int main(void)
 
 | Submodule | Version | Role |
 |-----------|---------|------|
-| `extern/richc` | V0.5 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) |
+| `extern/richc` | V0.6 | Core types (`rc_str`, `rc_arena`, `rc_vec2i`, …) + `rc_solve_quadratic/cubic` |
 | `extern/glfw`  | 3.4 | Window creation, input, GL context |
 | `extern/glad`  | glad2 | OpenGL 3.3 core loader (generated at configure time) |
 | `extern/miniz` | HEAD | zlib/DEFLATE for PNG decompression |

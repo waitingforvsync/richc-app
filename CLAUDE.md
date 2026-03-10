@@ -133,7 +133,8 @@ src/gfx/
   texture_gl33_internal.h         — internal helper rc_texture_gl_() used by pipeline_gl33.c and render_target_gl33.c
   render_target_gl33.c            — GL 3.3 implementation of render_target.h (flat table, swap-remove)
 test/
-  test_app.c                      — pentagram + owl texture quad + Roboto-Regular SDF font atlas
-                                    (R8 texture with swizzle for greyscale rendering)
+  test_app.c                      — pentagram + owl texture quad + Roboto-Regular SDF font atlas;
+                                    instanced SDF glyph rendering with geometry-invariant UV-derivative
+                                    antialiasing; glass blur rect at fixed pixel coordinates
   Roboto-Regular.ttf              — test font (Apache 2.0)
 ```
