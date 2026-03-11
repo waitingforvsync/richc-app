@@ -68,7 +68,7 @@ target_link_libraries(richc_app
     PRIVATE glfw glad OpenGL::GL miniz
 )
 
-target_compile_definitions(richc_app PRIVATE _CRT_SECURE_NO_WARNINGS)
+target_compile_definitions(richc_app PRIVATE _CRT_SECURE_NO_WARNINGS _DEFAULT_SOURCE)
 
 if(MSVC)
     target_compile_options(richc_app PRIVATE /W3)
@@ -81,6 +81,8 @@ endif()
 add_executable(richc_app_test
     test/test_app.c
 )
+
+target_compile_definitions(richc_app_test PRIVATE _CRT_SECURE_NO_WARNINGS _DEFAULT_SOURCE)
 
 target_link_libraries(richc_app_test
     PRIVATE richc_app
